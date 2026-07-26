@@ -1,0 +1,404 @@
+Who you are and how you work (read before anything else)
+
+You are a senior Web Developer, Full-Stack Software Engineer, and Product Designer
+with 20+ years of experience shipping real-world systems end-to-end. Your core
+strengths are system design and architecture, deep technical expertise, strong
+product taste, and a relentless focus on code quality. The code you write is
+maintainable, testable, reliable, resilient, frugal, efficient, and production-ready:
+consistent styling, robust error handling, input validation, sensible logging, and
+risk mitigation are defaults, not extras. You identify the user's real problem and
+solve it in the most effective way — impactful, purposeful features over decoration.
+
+**Process (non-negotiable):**
+
+1. **Plan first.** Read this entire PRD carefully. Identify key requirements, edge
+   cases, and pitfalls. If anything is genuinely blocking, surface it as a question
+   IN YOUR PLAN with your proposed default answer, and proceed with that default
+   unless I object — do not stall waiting for replies. Produce a detailed plan that
+   follows §9's build order. Do NOT one-shot the whole app.
+2. **One stage at a time.** For every stage in §9: implement → run the stage gate →
+   test → review your own diff with fresh eyes → fix → only then move on. Keep
+   changes cohesive and incremental; refactor for clarity while keeping tests green.
+3. **Wear each reviewer hat at every stage boundary,** as if a separate specialist
+   with a fresh context were auditing the work: a Code Reviewer (correctness,
+   clarity, naming, duplication), a Test Automator (do the §10 tests exist and
+   actually run? no fake test claims), a Security Auditor (auth on every route,
+   token handling, injection, secrets never in code or logs), a Performance Engineer
+   (N+1 queries, blocking calls, unpaginated lists), an Architect (§8 stack respected,
+   no anti-patterns, §14 portability seams intact), a PM (does this stage serve §3's
+   goals and §11's metrics?), and finally a Judge (is the stage gate demonstrably
+   met, with output shown?). Report each stage's verdicts honestly.
+4. **Adopt, don't rebuild.** Prefer proven, boring libraries (the §8 stack is
+   pinned) over hand-rolled implementations — especially auth, migrations,
+   validation, and CSV parsing. Never hand-roll crypto or auth.
+5. **Test-driven honesty.** Write the tests in §10 and RUN them; show the output.
+   Never claim a test passed without running it. Never fabricate seed data beyond
+   §5's example. If something cannot be verified in this environment, say so
+   explicitly instead of guessing. I must never discover after you finish that a
+   feature you reported as working is broken — validate end-to-end before reporting.
+6. **Be metacognitive before each stage:** Does this design accomplish the goal
+   correctly and logically? What could break? What edge cases (empty data, tiny n,
+   huge payloads, malformed input) need handling? Am I missing a §6 requirement?
+   How likely is this to break, and how would I know?
+7. **Ambiguity rule:** when something is unclear, make the safest, most conservative
+   assumption, note it explicitly in `replit.md`, and keep going. Prefer simple,
+   proven approaches you are confident will work over clever ones. Optimize only
+   when it clearly serves correctness, clarity, or a §7 performance requirement.
+8. **Work autonomously end-to-end.** After plan approval, work through all §9
+   stages yourself — build, test, review, fix. At each stage boundary, record the
+   gate evidence (commands run, actual outputs) in your progress notes and continue;
+   stop and ask only if a gate genuinely cannot be met.
+
+---
+
+## 1. Summary
+
+Jarvis Mission Control is a **single-user web dashboard** that visualizes an existing,
+fully-built job-application pipeline (job discovery → AI evaluation → tailored resume →
+cover letter → apply session → tracker → email reply-matching) that runs locally on my
+Mac and writes structured data files. The pipeline already works; what's missing is
+**sight**: a ranked review queue, a pipeline board, funnel analytics, a follow-up
+queue, and an intern-recruiting-season calendar — instead of markdown tables in a
+terminal.
+
+**Core doctrine (non-negotiable):** the Mac's files are the single source of truth.
+This app **ingests** snapshots pushed from the Mac and **never writes back
+automatically**. Any edit made in the dashboard (status change, note, follow-up done)
+is queued as a *pending change* and rendered as a copy-pasteable CLI command
+(`python3.11 scripts/track.py set 7 responded --date 2026-08-02 --note "..."`) that I
+run on the Mac myself. The dashboard suggests; the human applies. Nothing in this app
+ever auto-submits an application, sends an email, or logs into any job board.
+
+## 2. Problem statement
+
+I am a UC Berkeley CS/DS student applying to US SWE internships at volume
+(target: 25+ tracked applications during the Aug–Oct 2026 recruiting season). My
+pipeline automates the hard parts, but its outputs live in markdown/TSV files:
+
+- The **discovery queue** (150+ scored listings) is a markdown table — no way to scan,
+  filter, or mark-reviewed quickly.
+- The **tracker** funnel/status data has no visual: no board, no conversion rates at a
+  glance, no "what needs my attention today."
+- **Follow-ups due**, **blockers found by pre-scan**, and **email-reply suggestions**
+  are separate CLI outputs — there is no single morning view of "what do I do next."
+- Which **resume version / letter tone** went to which company (the data exists) has
+  no comparative view, so I can't see what's working once responses arrive.
+
+Time cost aside, the real risk is *tracker death*: friction at the moment of least
+motivation. A dashboard I open once a day fixes that.
+
+## 3. Goals
+
+1. One morning view: today's follow-ups, pending email suggestions, top queue items,
+   blockers — in under 5 seconds of scanning.
+2. Review the discovery queue at 10× current speed (sort/filter/keyboard, score
+   badges with reasons).
+3. See the funnel with per-stage conversion and score-band splits, honestly
+   right-censored ("n still in flight").
+4. Never let a follow-up or application deadline slip during the Aug–Oct season.
+5. Zero risk to the pipeline: read-mostly by construction; export-commands for writes.
+
+### Non-goals (v1 — do NOT build these)
+
+- No auto-apply, no scraping, no logging into job boards, no browser automation.
+- No LLM calls in the app (all scores/analysis are precomputed upstream; do not add
+  AI features, chatbots, or "AI insights").
+- No resume/letter *generation* (exists upstream).
+- No multi-user support, no teams, no sharing, no public pages.
+- No email sending of any kind.
+- No mobile app (responsive web is enough).
+
+## 4. Target user
+
+Exactly one: me. Skill level: I read code but want a polished, fast UI. I will use
+this daily on desktop Chrome, occasionally on phone.
+
+## 5. Data model — THIS IS THE CONTRACT, paste-accurate
+
+The Mac pushes a JSON snapshot (schema below). Store snapshots and normalize into
+these tables. **Field names must match exactly** — the Mac-side push script is already
+specified against them. All dates are ISO `YYYY-MM-DD` strings.
+
+```
+IngestSnapshot            # one per push, keep last 30 for history/diff
+ - id, received_at, payload_version (int, currently 1), raw_json
+
+Application               # from tracker rows
+ - num (int, UNIQUE — the pipeline's row id; NEVER renumber)
+ - date, company, role, score (string: "4.1" | "N/A" | ""), status
+   (evaluated|applied|oa|responded|interview|offer|hired|rejected|discarded|withdrawn)
+ - contact, via, resume, letter, report, notes (all strings, may be "")
+
+StatusEvent               # from status_log.tsv (append-only upstream)
+ - num (int), date, from_status, to_status, source (cli|sync|correction|followup|round), note
+
+QueueItem                 # from discovery queue
+ - rank (int), score (float), company, title, posted (date string), url
+ - reviewed (bool, LOCAL to the app — survives re-ingest by url match)
+
+EvalSummary               # from eval reports' machine summaries
+ - num (int), url, company, role, score, recommendation, legitimacy,
+   blockers (string[], may be empty), warnings (string[])
+
+CoverLetter               # from covers ledger
+ - num (int), file, date, tone, gate_clear (bool)
+
+FollowupItem              # computed upstream, pushed as-is
+ - num (int), company, role, urgency (urgent|overdue|needs-data|waiting|cold),
+   next_date, reason
+
+ReplySuggestion           # from email reply-matching digests
+ - message_date, subject, from_addr, kind, confidence, suggested_command (string),
+   blocker (string, "" if actionable)
+
+PendingChange             # created IN the app by me; the write-back queue
+ - id, created_at, num (int), kind (status|note|followup_done|contact)
+ - payload (json), command (string — the exact CLI command to run on the Mac)
+ - state (pending|copied|applied|dismissed)
+
+SeasonDeadline            # manual entries + optional CSV import
+ - id, company, program, opens_date, closes_date, url, notes, source (manual|import)
+```
+
+### Ingest payload example (REAL shapes from my pipeline — seed the dev DB with
+exactly this, and do NOT invent additional fake data beyond it):
+
+```json
+{
+  "payload_version": 1,
+  "generated_at": "2026-07-26",
+  "applications": [
+    {"num": 1, "date": "2026-07-25", "company": "Figma", "role": "Software Engineer, AI Platforms",
+     "score": "2.3", "status": "evaluated", "contact": "", "via": "",
+     "resume": "", "letter": "001-figma-2026-07-25-cover-v4.md",
+     "report": "001-figma-2026-07-25.md", "notes": ""},
+    {"num": 2, "date": "2026-07-25", "company": "Stripe", "role": "Software Engineer, Intern",
+     "score": "4.1", "status": "evaluated", "contact": "", "via": "",
+     "resume": "Stripe_Software_Engineer_Intern.pdf", "letter": "",
+     "report": "002-job-2026-07-25.md", "notes": ""}
+  ],
+  "status_events": [
+    {"num": 2, "date": "2026-07-25", "from_status": "", "to_status": "evaluated",
+     "source": "sync", "note": ""}
+  ],
+  "queue": [
+    {"rank": 1, "score": 2.0, "company": "Figma", "title": "Software Engineer, AI Platforms",
+     "posted": "2025-11-01", "url": "https://boards.greenhouse.io/figma/jobs/5691886004"},
+    {"rank": 4, "score": 2.0, "company": "Stripe", "title": "Software Engineer, Security Analytics Infrastructure",
+     "posted": "2026-04-20", "url": "https://stripe.com/jobs/search?gh_jid=7826761"}
+  ],
+  "evals": [
+    {"num": 2, "url": "https://stripe.com/jobs/search?gh_jid=8031833", "company": "Stripe",
+     "role": "Software Engineer, Intern", "score": "4.1", "recommendation": "apply",
+     "legitimacy": "OK", "blockers": ["gap: Office locations Bengaluru"],
+     "warnings": ["reposted 1x"]}
+  ],
+  "covers": [
+    {"num": 1, "file": "001-figma-2026-07-25-cover-v6.md", "date": "2026-07-25",
+     "tone": "mirror", "gate_clear": false}
+  ],
+  "followups": [
+    {"num": 2, "company": "Stripe", "role": "Software Engineer, Intern",
+     "urgency": "waiting", "next_date": "2026-08-01", "reason": "applied 2026-07-25; first follow-up at +7d"}
+  ],
+  "reply_suggestions": [
+    {"message_date": "2026-07-24", "subject": "Update on your application",
+     "from_addr": "no-reply@stripe.com", "kind": "rejection", "confidence": "high",
+     "suggested_command": "python3.11 scripts/track.py set 2 rejected --date 2026-07-24 --note 'email: Update on your application'",
+     "blocker": ""}
+  ]
+}
+```
+
+Ingest rules — per-table semantics (these ARE the idempotency contract):
+
+- `applications` / `evals`: upsert by `num`.
+- `queue`: upsert by `url`, ALWAYS preserving the local `reviewed` flag.
+- `status_events`: append-only, dedup'd on all fields.
+- `covers`: upsert by (`num`, `file`).
+- `followups` and `reply_suggestions` are **computed snapshots**: whenever the key is
+  present in the payload (even as `[]`), REPLACE that table's contents entirely —
+  these two tables are exempt from the never-delete rule (a follow-up completed on
+  the Mac must disappear here on the next push).
+- A field missing from a snapshot = keep the existing value; an application absent
+  from a snapshot = keep it (snapshots may be partial). NEVER delete rows on ingest
+  for `applications`, `queue`, `evals`, `covers`, `status_events`.
+- Store each payload's `generated_at`; header staleness (F1) is measured from the
+  latest snapshot's `received_at`.
+
+One intentional quirk in the example above: `applications[0].letter` says
+`...cover-v4.md` while `covers[0].file` says `...cover-v6.md` — this is REAL data,
+not an error (the ledger tracks the latest letter version). Join covers to
+applications by `num`, never by filename. Do not "fix" the seed data.
+
+## 6. Features (priority-ordered)
+
+| # | Feature | Description | Priority |
+|---|---------|-------------|----------|
+| F1 | **Ingest API + manual upload** | `POST /api/ingest` (Bearer token from env secret `INGEST_TOKEN`, JSON body ≤ 5 MB, validated against §5, 422 with per-field errors on bad payloads) + a drag-drop JSON upload on a Settings page as fallback. Show last-sync time prominently in the header; warn amber when > 48h stale. | P0 |
+| F2 | **Today view (landing page)** | Four stacked cards: (1) Follow-ups due today/overdue with urgency chips; (2) Pending email suggestions (actionable ones with their exact commands, copy button each); (3) Top 5 unreviewed queue items by score; (4) Blockers: every non-terminal application (status not in hired/rejected/discarded/withdrawn) whose EvalSummary — joined by `num` — has a non-empty `blockers` array; show company, status, and the blocker strings (with the seed data this card shows one row: Stripe, "gap: Office locations Bengaluru"). Each card links into its full view. Empty states say what they mean ("no follow-ups due — nothing is waiting on you"). | P0 |
+| F3 | **Applications board + table** | Dual view toggle. Board: kanban columns by status in pipeline order (evaluated → applied → oa → responded → interview → offer; terminal column collapsed by default). Card: company, role, score badge, days-in-current-stage, resume/letter chips (✓/—), ghost flag (applied + no event in 21d = 👻). Table: all columns, sortable, filter by status/score-band/company text. Row click → detail drawer: full status history timeline (from StatusEvent), eval blockers/warnings, notes, contact/via, links (report/letter/resume names as text — the files stay on my Mac; render names, not links). | P0 |
+| F4 | **Status/note editing → pending changes** | From board (drag between columns) or drawer: change status, add note, set contact, mark follow-up done. Each edit creates a PendingChange with the exact CLI command (formats: `python3.11 scripts/track.py set {num} {status} --date {today} --note "{note}"`, `... contact {num} --contact {value}`, `... followup {num} --note "{note}"`). Note values in commands: wrap in double quotes, strip newlines, escape embedded `"` and `$` — with an exact-string unit test for a note containing a quote. **Allowed transitions only** (mirrors the Mac's state machine): forward along evaluated→applied→oa→responded→interview→offer, or any non-terminal → rejected/discarded/withdrawn. Terminal rows are not draggable; disallowed drags snap back with a toast "backward/terminal corrections happen on the Mac with --force" — the app NEVER emits `--force`. A persistent "Pending changes (N)" tray lists changes with per-item and copy-all buttons; states pending→copied→applied (or dismissed). **Optimistic display is an overlay, never a DB write:** ingested values always win in the stored Application row; while a change is pending/copied, render that row with the change's target value + a "not yet synced to Mac" badge; a non-matching ingest changes nothing about the overlay. Auto-apply matching per kind — `status`: ingested status equals target; `contact`: ingested contact equals value; `note`: ingested `notes` CONTAINS the note text (Mac appends notes); `followup_done`: a new StatusEvent with source `followup` for that `num` dated on/after the change's creation. Unmatched changes stay `copied` until I dismiss them. NEVER call any external system. | P0 |
+| F5 | **Review queue** | The discovery queue as a fast triage list: score badge, company, title, posted-age (stale >60d dimmed), source URL (external link, opens new tab). Keyboard: j/k navigate, r = mark reviewed, o = open URL. Reviewed items persist across ingests (match by url). Filter: unreviewed / all / by company. | P0 |
+| F6 | **Funnel & analytics** | (a) Funnel: counts per stage + conversion % between adjacent stages, right-censored honestly — in-flight rows excluded from denominator, shown as "n in flight". (b) Score-band conversion: rows bucketed by eval score (<3, 3–4, ≥4) × outcome — the calibration view for my 4.0 apply-gate. (c) Response-rate splits: by letter tone and by resume attached vs not — response rate = (rows with any StatusEvent to_status in {responded, interview, offer, hired}) ÷ (rows that ever entered `applied` per StatusEvent); show n on every split; when multiple covers exist for a `num`, use the latest by (`date`, then `file`). (d) Velocity: median days per stage hop from StatusEvent. Score parsing for (b): parse as float; unparseable/"N/A"/"" rows go to a fourth "unscored" bucket, never silently dropped; 4.0 belongs to the ≥4 band. Charts: simple bars/numbers, no chart-library bloat — clarity over decoration. Every chart must render correctly with tiny n (2 rows) without fake smoothing. | P1 |
+| F7 | **Season calendar** | Month-grid + list view of SeasonDeadline entries (company, program, opens/closes). Manual add/edit form + CSV import (columns: company,program,opens_date,closes_date,url,notes). Badge on Today view when something opens/closes within 7 days. Pre-seed EMPTY — I will fill it; do not invent deadline data. | P1 |
+| F8 | **Weekly goal bar** | Settings-defined weekly application target (default 10). Progress = count of StatusEvents entering `applied` this ISO week. A quiet progress bar on Today view. NO streaks, NO badges, NO gamification beyond this bar. | P2 |
+| F9 | **CSV export** | Export applications table (current filter) as CSV. | P2 |
+
+## 7. Design requirements
+
+- **Look:** clean mission-control aesthetic — dark mode default with light toggle,
+  dense but readable tables, generous Today view. Sans-serif, no marketing-page
+  styling; this is an operator console. Use shadcn/ui components + Tailwind.
+- Score badges: red <3.0, amber 3.0–3.9, green ≥4.0 (matches my pipeline's 4.0 gate).
+- Urgency chips: urgent=red, overdue=orange, needs-data=purple, waiting=gray, cold=blue.
+- All timestamps display in America/Los_Angeles — and ALL date computations
+  ("today", follow-up due, >48h staleness, the 21-day ghost flag, >60d stale
+  postings, ISO-week membership for the weekly goal, and the `{today}` substituted
+  into pending-change commands) use the current date in America/Los_Angeles,
+  regardless of server timezone (Replit servers run UTC).
+- Snappy: any view interactive in <1s after load with 500 queue items / 100
+  applications; paginate or virtualize past 200 rows.
+- Every destructive UI action (dismiss pending change, delete deadline) needs an
+  undo toast, not a confirm dialog.
+- Empty/error states are first-class: never render a blank panel; say what's missing
+  and which pipeline command produces it.
+
+## 8. Tech stack (pinned — do not substitute)
+
+- **Frontend:** React + Vite + Tailwind + shadcn/ui. Single-page app, client routing.
+- **Backend:** Node.js + Express API routes.
+- **DB:** Replit's built-in PostgreSQL — accessed ONLY through the standard
+  `DATABASE_URL` env var with a plain `pg` client or Drizzle ORM (no Replit-specific
+  DB SDKs; see §14 portability). Schema migrations via a migrations file run on boot
+  (no destructive in-place schema edits once data exists; additive migrations only).
+- **Auth:** Replit Auth — but AUTHENTICATION is not AUTHORIZATION: after login,
+  authorize ONLY me by comparing the authenticated Replit user id against the
+  `OWNER_USER_ID` secret; any other user gets 403 on every route (Replit Auth alone
+  admits any Replit account — that is not acceptable). Isolate all of this behind
+  ONE auth middleware module with an `AUTH_MODE` env switch (see §14). Every API
+  route requires auth EXCEPT `POST /api/ingest`, which instead requires the Bearer
+  token from the `INGEST_TOKEN` secret (constant-time comparison; 401 without it;
+  rate-limit 10 req/min).
+- **Secrets:** Replit Secrets manager only (`INGEST_TOKEN`, `OWNER_USER_ID`,
+  `SESSION_SECRET`). Never hardcode; never log them; generate me instructions to
+  set each one (including how I find my Replit user id).
+- **No background jobs needed in v1** (ingest is push-based). Do not add cron/timers.
+- **No external API calls, no LLM integrations, no third-party services.** The app is
+  self-contained: DB + UI + ingest endpoint.
+- Push the repo to GitHub from day one; commit per build stage.
+- Maintain a `replit.md` documenting: doctrine (§1), data contract (§5), how to run
+  tests, and "do not add auto-apply/LLM/email features" as standing constraints.
+
+## 9. Build order (stage-gated — complete + verify each before the next)
+
+1. **Schema + ingest + seed.** Migrations for all §5 tables; `POST /api/ingest` with
+   token auth + validation; load the §5 example payload as seed via the endpoint
+   itself (not direct DB inserts — the endpoint is what must work). *Gate: curl the
+   seed payload → 200; re-POST it → idempotent (no dupes); malformed payload → 422
+   with field errors; wrong token → 401.*
+2. **Applications table + detail drawer** (F3 table half) reading real seeded data.
+   *Gate: Stripe row's 4.1 score renders a GREEN badge per §7's color rules; status
+   history renders the sync event; blocker "Bengaluru" visible in drawer.*
+3. **Board view + status drag → PendingChange tray** (F3 board + F4). *Gate: drag
+   Stripe evaluated→applied creates a pending change whose command string is exactly
+   `python3.11 scripts/track.py set 2 applied --date <today>`; tray copy works;
+   re-ingesting a snapshot where row 2 is applied auto-marks it applied.*
+4. **Today view** (F2) assembling follow-ups, suggestions, queue-top, blockers.
+   *Gate: with seed data it shows 1 follow-up (waiting), 1 reply suggestion with
+   copyable command, queue items, 1 blocker card.*
+5. **Review queue** (F5) with keyboard triage + persistent reviewed flags.
+   *Gate: mark rank-1 reviewed → re-ingest same payload → still reviewed.*
+6. **Funnel + analytics** (F6). *Gate: with 2 applications the funnel shows honest
+   tiny-n output (no NaN%, no fake bars); moving one row to applied via ingest
+   updates conversions.*
+7. **Season calendar + weekly goal + CSV export** (F7, F8, F9). *Gate: add a manual
+   deadline → appears in month grid + Today badge when within 7 days; CSV downloads
+   and reopens in a spreadsheet.*
+8. **Polish pass:** empty states, dark mode audit, mobile spot-check, `replit.md`
+   final, `MIGRATION.md` (§14) final incl. the `AUTH_MODE=basic` boot test, README
+   with my setup steps (set INGEST_TOKEN, first ingest curl).
+
+## 10. Testing & verification (the agent must do these, not claim them)
+
+- **API tests** (run with a real test DB, not mocks): ingest happy path, idempotent
+  re-ingest, partial snapshot preserves existing rows, absent-row preservation,
+  bad token 401, malformed 422, oversize 413, rate-limit 429.
+- **Unit tests:** funnel math (right-censoring: 2 applied + 1 responded + 3 evaluated
+  → applied→responded shows 1/2 = 50%, 3 excluded as pre-applied), score-band
+  bucketing, days-in-stage, ghost-flag (21d), ISO-week goal counting, command-string
+  formatting for every PendingChange kind (exact string equality tests).
+- **E2E smoke** (Playwright or the platform's test runner): seed → Today view renders
+  all four cards → drag a board card → pending tray shows the exact command → mark
+  queue item reviewed → re-ingest → flag persists.
+- **Honesty rule: never claim a test passed without running it and showing output.**
+  If something can't be tested in this environment, say so explicitly.
+- **Performance check:** generate 500 queue items + 100 applications via the ingest
+  endpoint (script it), then verify each view loads interactively <1s; paginate if not.
+- **Security check before finishing:** no route accessible logged-out except ingest
+  (token-only); a logged-in Replit user whose id ≠ `OWNER_USER_ID` gets 403 on every
+  route (write a test simulating a second user id); token never in client bundle or
+  logs; no secrets in the repo; drag-and-drop/upload paths reject non-JSON; SQL only
+  via parameterized queries.
+- **Final review pass:** re-read §1 doctrine and §3 non-goals, then grep the codebase
+  for violations: any outbound HTTP call (there should be zero), any email/LLM/cron
+  code (zero), any write path that mutates Application rows other than ingest +
+  optimistic pending-change marking (zero).
+
+## 11. Success metrics
+
+- Morning check ritual ≤ 60 seconds: open Today view → know exactly what to do next.
+- Queue triage ≥ 30 listings in 5 minutes (keyboard flow).
+- Zero divergence incidents: dashboard never shows a state the Mac files contradict
+  without the "not yet synced" badge explaining it.
+- Season calendar catches 100% of entered deadlines with ≥7-day warning.
+- I stop opening the markdown files for daily decisions within one week.
+
+## 12. Risks & mitigations
+
+- **Two sources of truth drift** → mitigated by doctrine (§1): ingest-only writes,
+  pending-change tray, "not yet synced" badges, staleness warning.
+- **Replit agent inventing data or features** → seed ONLY from §5 example; §3
+  non-goals are hard constraints; final review pass greps for violations.
+- **Credit burn** → build in Economy/default mode; no LLM integrations; app compute
+  is a small always-cheap web service.
+- **Schema drift vs the Mac push script** → `payload_version` field; reject unknown
+  major versions with a clear error rather than guessing.
+- **Security of the ingest endpoint** → long random token, rate limit, size cap,
+  no reflection of payload contents into HTML without escaping.
+
+## 13. Out of scope but planned (do not build, leave seams)
+
+- Mac-side `push_dashboard.py` (I build that myself against §5 — it reads my local
+  files and POSTs the snapshot).
+- Auto-ingest of email reply suggestions on a schedule (needs the Mac to push;
+  ingest endpoint already covers it).
+- Response-rate significance testing once n ≥ 25 applied (frozen until volume).
+
+## 14. Portability requirements (self-host later — these are hard requirements NOW)
+
+This app will eventually move to my own Linux VPS. Build so that migration is
+config-only, never surgery:
+
+1. **Everything is code in the repo.** No logic may live only in Replit UI settings.
+   The GitHub repo must contain the complete, runnable application.
+2. **Standard runtime:** the app must start with `npm install && npm run build &&
+   npm start` given only env vars (`DATABASE_URL`, `INGEST_TOKEN`, `AUTH_MODE`,
+   `OWNER_USER_ID`, `SESSION_SECRET`, `AUTH_BASIC_USER`, `AUTH_BASIC_PASSWORD_HASH`,
+   `PORT`). No Replit-only APIs, SDKs, or file paths anywhere outside the two seams
+   below.
+3. **DB seam:** all database access through `DATABASE_URL` + standard Postgres
+   client/ORM. Migration to any Postgres = `pg_dump` → restore → repoint the URL.
+   Never use Replit Key-Value/Object storage.
+4. **Auth seam:** one middleware module (`server/auth.ts` or equivalent) is the ONLY
+   place that knows about Replit Auth. `AUTH_MODE=replit` (default on Replit; owner
+   check via `OWNER_USER_ID`) | `AUTH_MODE=basic` (single user from
+   `AUTH_BASIC_USER` + `AUTH_BASIC_PASSWORD_HASH` (bcrypt), for the VPS). Both modes
+   produce the same `req.user` shape. Write a test that boots the app in-process
+   with `AUTH_MODE=basic` and the two env vars set, and exercises login + a
+   protected route + a wrong-password 401 — this runs inside Replit's normal test
+   suite and proves the seam works before I ever need it.
+5. **`MIGRATION.md` in the repo root:** exact self-host steps — env vars table,
+   `pg_dump`/restore commands, `AUTH_MODE=basic` setup, reverse-proxy note (app
+   binds `0.0.0.0:$PORT`), and anything Replit-specific someone would need to know
+   to leave Replit. Keep it current as you build.
