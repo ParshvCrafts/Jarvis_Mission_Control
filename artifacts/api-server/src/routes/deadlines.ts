@@ -297,7 +297,8 @@ router.post("/deadlines/csv-import", async (req, res) => {
       duplicates++;
       continue;
     }
-    const nearMatch = byCompanyProgram.get(cpKeyOf(r))?.[0];
+    const candidates = byCompanyProgram.get(cpKeyOf(r));
+    const nearMatch = candidates ? pickClosestByDates(candidates, r) : undefined;
     if (nearMatch) {
       conflicts.push({
         existing_id: nearMatch.id,
@@ -321,6 +322,40 @@ router.post("/deadlines/csv-import", async (req, res) => {
 
   res.json({ inserted: toInsert.length, duplicates, errors, conflicts });
 });
+
+/**
+ * When several existing rows share company+program, pick the one whose dates
+ * are closest to the CSV row's dates so "Use CSV dates" targets the right row.
+ * Distance is the summed absolute day-difference across opens/closes dates;
+ * a date present on only one side costs a large penalty. Ties break on lowest id.
+ */
+function pickClosestByDates<
+  T extends { id: number; opensDate: string | null; closesDate: string | null },
+>(candidates: T[], csvRow: { opensDate?: string | null; closesDate?: string | null }): T | undefined {
+  if (candidates.length <= 1) return candidates[0];
+
+  const MISMATCH_PENALTY = 1e9;
+  const dayDiff = (a: string | null | undefined, b: string | null | undefined): number => {
+    const aN = a ?? null;
+    const bN = b ?? null;
+    if (aN === null && bN === null) return 0;
+    if (aN === null || bN === null) return MISMATCH_PENALTY;
+    const ms = Math.abs(Date.parse(aN) - Date.parse(bN));
+    return Number.isNaN(ms) ? MISMATCH_PENALTY : ms / 86_400_000;
+  };
+
+  let best: T | undefined;
+  let bestScore = Infinity;
+  for (const c of candidates) {
+    const score =
+      dayDiff(c.opensDate, csvRow.opensDate) + dayDiff(c.closesDate, csvRow.closesDate);
+    if (score < bestScore || (score === bestScore && best && c.id < best.id)) {
+      best = c;
+      bestScore = score;
+    }
+  }
+  return best;
+}
 
 /** Simple CSV line parser — handles quoted fields containing commas. */
 function parseCSVLine(line: string): string[] {

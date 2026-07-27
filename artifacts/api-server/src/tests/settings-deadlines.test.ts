@@ -390,6 +390,82 @@ describe("POST /api/deadlines/csv-import", () => {
     expect(res.body.inserted).toBe(0);
   });
 
+  it("picks the closest-date match when multiple existing rows share company+program", async () => {
+    await db.delete(seasonDeadlinesTable);
+    // Two pre-existing duplicates for the same company+program with different dates
+    const [rowA] = await db
+      .insert(seasonDeadlinesTable)
+      .values({
+        company: "MultiCo",
+        program: "SWE",
+        opensDate: "2026-01-01",
+        closesDate: "2026-02-01",
+        url: "",
+        notes: "",
+        source: "import",
+      })
+      .returning();
+    const [rowB] = await db
+      .insert(seasonDeadlinesTable)
+      .values({
+        company: "MultiCo",
+        program: "SWE",
+        opensDate: "2026-09-01",
+        closesDate: "2026-10-01",
+        url: "",
+        notes: "",
+        source: "import",
+      })
+      .returning();
+
+    // CSV dates are near rowB's dates, far from rowA's
+    const csv = [
+      "company,program,opens_date,closes_date",
+      "MultiCo,SWE,2026-09-03,2026-10-05",
+    ].join("\n");
+
+    const res = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(res.status).toBe(200);
+    expect(res.body.inserted).toBe(0);
+    expect(res.body.conflicts).toHaveLength(1);
+    // Must conflict against rowB (closest by dates), not the first row (rowA)
+    expect(res.body.conflicts[0].existing_id).toBe(rowB!.id);
+    expect(res.body.conflicts[0].existing_id).not.toBe(rowA!.id);
+    expect(res.body.conflicts[0].existing_opens_date).toBe("2026-09-01");
+    expect(res.body.conflicts[0].existing_closes_date).toBe("2026-10-01");
+  });
+
+  it("prefers a candidate with matching null dates over one with dates when CSV dates are null", async () => {
+    await db.delete(seasonDeadlinesTable);
+    await db.insert(seasonDeadlinesTable).values({
+      company: "NullMatch Co",
+      program: "PM",
+      opensDate: "2026-05-01",
+      closesDate: "2026-06-01",
+      url: "",
+      notes: "",
+      source: "import",
+    });
+    const [nullRow] = await db
+      .insert(seasonDeadlinesTable)
+      .values({
+        company: "NullMatch Co",
+        program: "PM",
+        opensDate: null,
+        closesDate: "2026-12-01",
+        url: "",
+        notes: "",
+        source: "import",
+      })
+      .returning();
+
+    // CSV row has null opens_date and a closes_date near the null-opens row
+    const csv = ["company,program,opens_date,closes_date", "NullMatch Co,PM,,2026-11-20"].join("\n");
+    const res = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(res.body.conflicts).toHaveLength(1);
+    expect(res.body.conflicts[0].existing_id).toBe(nullRow!.id);
+  });
+
   it("ignores non-matching date formats (stores as null)", async () => {
     await db.delete(seasonDeadlinesTable);
     // Both dates don't match YYYY-MM-DD pattern → stored as null
