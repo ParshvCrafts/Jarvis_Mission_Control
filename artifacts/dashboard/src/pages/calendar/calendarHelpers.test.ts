@@ -4,6 +4,10 @@ import {
   isoDay,
   isWindowDeadline,
   computeWeekSegments,
+  daysFromNow,
+  urgencyClass,
+  daysLabel,
+  bandColorClass,
   type WindowDeadlineLike,
 } from "./calendarHelpers";
 
@@ -206,5 +210,123 @@ describe("computeWeekSegments", () => {
     // No collision → both fit on lane 0 despite different urgency
     expect(laneOf.get(urgent.id)).toBe(0);
     expect(laneOf.get(laterButFree.id)).toBe(0);
+  });
+});
+
+// ─── daysFromNow ──────────────────────────────────────────────────────────────
+
+const TODAY = "2026-07-27";
+
+describe("daysFromNow", () => {
+  it("returns null for missing dates", () => {
+    expect(daysFromNow(null, TODAY)).toBeNull();
+    expect(daysFromNow(undefined, TODAY)).toBeNull();
+    expect(daysFromNow("", TODAY)).toBeNull();
+  });
+
+  it("returns 0 for today", () => {
+    expect(daysFromNow(TODAY, TODAY)).toBe(0);
+  });
+
+  it("returns positive counts for future dates", () => {
+    expect(daysFromNow("2026-07-28", TODAY)).toBe(1);
+    expect(daysFromNow("2026-07-30", TODAY)).toBe(3);
+    expect(daysFromNow("2026-08-03", TODAY)).toBe(7);
+    expect(daysFromNow("2026-08-10", TODAY)).toBe(14);
+  });
+
+  it("returns negative counts for past dates", () => {
+    expect(daysFromNow("2026-07-26", TODAY)).toBe(-1);
+    expect(daysFromNow("2026-07-20", TODAY)).toBe(-7);
+  });
+
+  it("counts whole days across month and year boundaries", () => {
+    expect(daysFromNow("2026-08-01", "2026-07-31")).toBe(1);
+    expect(daysFromNow("2027-01-01", "2026-12-31")).toBe(1);
+  });
+
+  it("is unaffected by DST transitions (noon-anchored)", () => {
+    // US DST ends Nov 1, 2026 (25-hour day in America/Los_Angeles)
+    expect(daysFromNow("2026-11-02", "2026-10-31")).toBe(2);
+    // DST starts Mar 8, 2026 (23-hour day)
+    expect(daysFromNow("2026-03-09", "2026-03-07")).toBe(2);
+  });
+});
+
+// ─── urgencyClass ─────────────────────────────────────────────────────────────
+
+describe("urgencyClass", () => {
+  it("returns muted class for null", () => {
+    expect(urgencyClass(null)).toBe("text-zinc-600");
+  });
+
+  it("strikes through past dates", () => {
+    expect(urgencyClass(-1)).toBe("text-zinc-700 line-through");
+    expect(urgencyClass(-30)).toBe("text-zinc-700 line-through");
+  });
+
+  it("marks today through 3 days as red", () => {
+    expect(urgencyClass(0)).toBe("text-red-400");
+    expect(urgencyClass(3)).toBe("text-red-400");
+  });
+
+  it("marks 4–7 days as amber", () => {
+    expect(urgencyClass(4)).toBe("text-amber-400");
+    expect(urgencyClass(7)).toBe("text-amber-400");
+  });
+
+  it("marks 8–14 days as yellow", () => {
+    expect(urgencyClass(8)).toBe("text-yellow-500");
+    expect(urgencyClass(14)).toBe("text-yellow-500");
+  });
+
+  it("marks beyond 14 days as neutral", () => {
+    expect(urgencyClass(15)).toBe("text-zinc-500");
+    expect(urgencyClass(100)).toBe("text-zinc-500");
+  });
+});
+
+// ─── daysLabel ────────────────────────────────────────────────────────────────
+
+describe("daysLabel", () => {
+  it("returns empty string for null", () => {
+    expect(daysLabel(null)).toBe("");
+  });
+
+  it('labels today as "today"', () => {
+    expect(daysLabel(0)).toBe("today");
+  });
+
+  it('labels future dates as "in Xd"', () => {
+    expect(daysLabel(1)).toBe("in 1d");
+    expect(daysLabel(14)).toBe("in 14d");
+  });
+
+  it('labels past dates as "Xd ago"', () => {
+    expect(daysLabel(-1)).toBe("1d ago");
+    expect(daysLabel(-10)).toBe("10d ago");
+  });
+});
+
+// ─── bandColorClass ───────────────────────────────────────────────────────────
+
+describe("bandColorClass", () => {
+  it("renders null and past closes as muted zinc", () => {
+    expect(bandColorClass(null)).toContain("bg-zinc-800/60");
+    expect(bandColorClass(-1)).toContain("bg-zinc-800/60");
+  });
+
+  it("renders today through 3 days as red", () => {
+    expect(bandColorClass(0)).toContain("bg-red-900/60");
+    expect(bandColorClass(3)).toContain("bg-red-900/60");
+  });
+
+  it("renders 4–14 days as amber", () => {
+    expect(bandColorClass(4)).toContain("bg-amber-900/60");
+    expect(bandColorClass(14)).toContain("bg-amber-900/60");
+  });
+
+  it("renders beyond 14 days as emerald", () => {
+    expect(bandColorClass(15)).toContain("bg-emerald-900/60");
   });
 });

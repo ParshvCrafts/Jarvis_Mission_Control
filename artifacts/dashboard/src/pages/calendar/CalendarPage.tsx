@@ -19,6 +19,11 @@ import {
   isoDay,
   isWindowDeadline,
   computeWeekSegments,
+  daysFromNow as daysFromNowPure,
+  urgencyClass,
+  daysLabel,
+  bandColorClass,
+  todayIso,
   type BandSegment,
 } from "./calendarHelpers";
 
@@ -55,47 +60,17 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
+// Date-math display helpers (daysFromNow, urgencyClass, daysLabel,
+// bandColorClass) live in calendarHelpers.ts so they can be unit-tested.
+// This wrapper pins "today" to America/Los_Angeles at call time.
 function daysFromNow(iso: string | null | undefined): number | null {
-  if (!iso) return null;
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
-  const todayMs = new Date(today + "T12:00:00").getTime();
-  const targetMs = new Date(iso + "T12:00:00").getTime();
-  return Math.round((targetMs - todayMs) / 86_400_000);
-}
-
-function urgencyClass(days: number | null): string {
-  if (days === null) return "text-zinc-600";
-  if (days < 0) return "text-zinc-700 line-through";
-  if (days <= 3) return "text-red-400";
-  if (days <= 7) return "text-amber-400";
-  if (days <= 14) return "text-yellow-500";
-  return "text-zinc-500";
-}
-
-function daysLabel(days: number | null): string {
-  if (days === null) return "";
-  if (days < 0) return `${Math.abs(days)}d ago`;
-  if (days === 0) return "today";
-  return `in ${days}d`;
+  return daysFromNowPure(iso, todayIso());
 }
 
 // ─── Calendar Grid Helpers ────────────────────────────────────────────────────
 // Pure grid/band math lives in calendarHelpers.ts so it can be unit-tested.
 
 // ─── Window Bands ─────────────────────────────────────────────────────────────
-
-/** Urgency color for a window band, based on days until close. */
-function bandColorClass(closesDays: number | null): string {
-  if (closesDays === null || closesDays < 0)
-    return "bg-zinc-800/60 text-zinc-500 ring-zinc-700/60 hover:bg-zinc-800";
-  if (closesDays <= 3)
-    return "bg-red-900/60 text-red-300 ring-red-700/60 hover:bg-red-900/80";
-  if (closesDays <= 14)
-    return "bg-amber-900/60 text-amber-300 ring-amber-700/60 hover:bg-amber-900/80";
-  return "bg-emerald-900/60 text-emerald-300 ring-emerald-700/60 hover:bg-emerald-900/80";
-}
-
-/** Deadlines that render as bands: both dates present and opens <= closes. */
 
 const BAND_TOP = 24; // px below the day number
 const LANE_HEIGHT = 16; // px per band lane
@@ -409,7 +384,7 @@ function GridCell({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+  const today = todayIso();
   const todayYear = parseInt(today.split("-")[0]!);
   const todayMonth = parseInt(today.split("-")[1]!) - 1;
 
