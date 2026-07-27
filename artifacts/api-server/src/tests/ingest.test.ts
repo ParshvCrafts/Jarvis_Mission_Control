@@ -479,6 +479,64 @@ describe("POST /api/ingest — auto-apply pending changes", () => {
   });
 });
 
+describe("POST /api/ingest — prune stale pending changes", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  async function seedChange(state: string, ageDays: number): Promise<number> {
+    const [row] = await db
+      .insert(pendingChangesTable)
+      .values({
+        num: 999,
+        kind: "note",
+        payload: { text: "seed" },
+        command: "python3.11 scripts/track.py noop",
+        state,
+        createdAt: new Date(Date.now() - ageDays * DAY),
+      })
+      .returning();
+    return row!.id;
+  }
+
+  it("deletes only applied/dismissed rows older than 30 days", async () => {
+    // Stale (older than 30 days) — should be pruned
+    const staleApplied = await seedChange("applied", 31);
+    const staleDismissed = await seedChange("dismissed", 45);
+
+    // Recent applied/dismissed — must remain
+    const recentApplied = await seedChange("applied", 29);
+    const recentDismissed = await seedChange("dismissed", 1);
+
+    // Active rows of any age — must never be touched
+    const oldPending = await seedChange("pending", 90);
+    const oldCopied = await seedChange("copied", 90);
+    const newPending = await seedChange("pending", 0);
+    const newCopied = await seedChange("copied", 0);
+
+    const res = await request(app)
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${INGEST_TOKEN}`)
+      .send({ payload_version: 1 });
+    expect(res.status).toBe(200);
+
+    const rows = await db.select().from(pendingChangesTable);
+    const ids = new Set(rows.map((r) => r.id));
+
+    // Stale completed rows gone
+    expect(ids.has(staleApplied)).toBe(false);
+    expect(ids.has(staleDismissed)).toBe(false);
+
+    // Recent completed rows remain
+    expect(ids.has(recentApplied)).toBe(true);
+    expect(ids.has(recentDismissed)).toBe(true);
+
+    // Active rows remain regardless of age
+    expect(ids.has(oldPending)).toBe(true);
+    expect(ids.has(oldCopied)).toBe(true);
+    expect(ids.has(newPending)).toBe(true);
+    expect(ids.has(newCopied)).toBe(true);
+  });
+});
+
 describe("AUTH_MODE=basic", () => {
   it("401 — wrong password returns 401", async () => {
     const wrongCreds = Buffer.from("admin:wrongpassword").toString("base64");
