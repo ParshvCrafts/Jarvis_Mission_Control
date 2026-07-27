@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from "react";
-import { Plus, Pencil, Trash2, X, Check, Upload, List, Grid3X3, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Check, Upload, List, Grid3X3, ChevronLeft, ChevronRight, AlertCircle, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -225,13 +225,16 @@ function DeadlineRow({
   d,
   onEdit,
   onDelete,
+  onJump,
 }: {
   d: SeasonDeadline;
   onEdit: (d: SeasonDeadline) => void;
   onDelete: (d: SeasonDeadline) => void;
+  onJump: (d: SeasonDeadline) => void;
 }) {
   const closesDays = daysFromNow(d.closes_date);
   const opensDays = daysFromNow(d.opens_date);
+  const hasDate = !!(d.opens_date || d.closes_date);
 
   return (
     <div className="flex items-center gap-3 py-2.5 border-b border-zinc-800/50 last:border-0 group">
@@ -251,7 +254,11 @@ function DeadlineRow({
           <span className="text-xs font-medium text-zinc-200">{d.company}</span>
           {d.program && <span className="text-[11px] text-zinc-500">{d.program}</span>}
         </div>
-        <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+        <div
+          className={cn("flex items-center gap-3 mt-0.5 flex-wrap", hasDate && "cursor-pointer")}
+          onClick={hasDate ? () => onJump(d) : undefined}
+          title={hasDate ? "Show on calendar" : undefined}
+        >
           {d.opens_date && (
             <span className="text-[10px] font-mono">
               <span className="text-zinc-700">opens </span>
@@ -279,6 +286,15 @@ function DeadlineRow({
 
       {/* Actions */}
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        {hasDate && (
+          <button
+            onClick={() => onJump(d)}
+            className="p-1 rounded text-zinc-600 hover:text-blue-400 hover:bg-zinc-800 transition-colors"
+            title="Show on calendar"
+          >
+            <CalendarDays className="h-3 w-3" />
+          </button>
+        )}
         {d.url && (
           <a
             href={d.url}
@@ -557,6 +573,25 @@ export default function CalendarPage() {
     }
   }
 
+  /** Switch to grid view at the month containing this deadline's window and select it. */
+  function jumpToDeadline(d: SeasonDeadline) {
+    const target = d.opens_date ?? d.closes_date;
+    if (!target) return;
+    const [y, m] = target.split("-");
+    setYear(parseInt(y!));
+    setMonth(parseInt(m!) - 1);
+    if (isWindowDeadline(d)) {
+      // Windows render as bands — select the band so the detail panel opens
+      setSelectedDay(null);
+      setSelectedDeadlineId(d.id);
+    } else {
+      // Single-date deadlines only have a day marker — select that day instead
+      setSelectedDeadlineId(null);
+      setSelectedDay(target);
+    }
+    setViewMode("grid");
+  }
+
   // Month grid
   const grid = buildMonthGrid(year, month);
   const monthName = new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -701,6 +736,7 @@ export default function CalendarPage() {
                     d={d}
                     onEdit={() => { setEditingId(d.id); setShowAddForm(false); }}
                     onDelete={handleDelete}
+                    onJump={jumpToDeadline}
                   />
                 )
               )
