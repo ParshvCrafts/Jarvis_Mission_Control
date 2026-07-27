@@ -257,7 +257,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-zinc-600">Build stage</span>
-              <span className="font-mono text-zinc-400">7 / 8</span>
+              <span className="font-mono text-zinc-400">8 / 8</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-zinc-600">Data source</span>

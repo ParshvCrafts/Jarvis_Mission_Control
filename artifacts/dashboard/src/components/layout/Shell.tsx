@@ -90,7 +90,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div className="px-4 pb-3 pt-2 border-t border-zinc-800/60 shrink-0">
-          <p className="text-[10px] text-zinc-700 font-mono">Stage 7 / 8</p>
+          <p className="text-[10px] text-zinc-700 font-mono">Stage 8 / 8</p>
         </div>
       </aside>
 

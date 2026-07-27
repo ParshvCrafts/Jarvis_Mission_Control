@@ -1,132 +1,180 @@
-# Jarvis Mission Control — Self-Host Migration Guide
+# Jarvis Mission Control — Migration & Self-Hosting Guide
 
-This document describes how to run the app on your own VPS or server
-instead of Replit. The only moving parts are Node.js, PostgreSQL,
-and environment variables.
-
----
-
-## Requirements
-
-| Component | Version |
-|-----------|---------|
-| Node.js   | ≥ 22    |
-| pnpm      | ≥ 10    |
-| PostgreSQL | ≥ 15   |
+This document covers everything needed to move the app off Replit, back it up,
+restore it to a fresh environment, or run it on a self-hosted VPS.
 
 ---
 
-## 1. Clone and install
+## Environment variables
+
+| Variable | Required in | Description |
+|---|---|---|
+| `DATABASE_URL` | Always | PostgreSQL connection string (e.g. `postgres://user:pass@host:5432/db`) |
+| `INGEST_TOKEN` | Always | Bearer token your Mac push script uses for `POST /api/ingest` |
+| `PORT` | Always | Port the API server binds to (set automatically by Replit; set manually on VPS) |
+| `AUTH_MODE` | Optional | `replit` (default) or `basic` |
+| `OWNER_USER_ID` | `AUTH_MODE=replit` | Your Replit numeric user ID (find it at `https://replit.com/@<you>`) |
+| `SESSION_SECRET` | `AUTH_MODE=replit` | Random secret for cookie signing (generate: `openssl rand -hex 32`) |
+| `REPL_ID` | `AUTH_MODE=replit` | Set automatically by Replit; OIDC redirect URI is derived from it |
+| `AUTH_BASIC_USER` | `AUTH_MODE=basic` | Login username |
+| `AUTH_BASIC_PASSWORD_HASH` | `AUTH_MODE=basic` | bcrypt hash of password (generate: see below) |
+
+### Generate a bcrypt password hash (basic mode)
 
 ```bash
-git clone <your-fork>
-cd jarvis
+node -e "const b=require('bcryptjs'); b.hash('your-password', 10).then(console.log)"
+```
+
+---
+
+## Database backup and restore
+
+### Backup (from Replit or any host)
+
+```bash
+# Full dump (schema + data)
+pg_dump "$DATABASE_URL" --no-acl --no-owner -Fc -f jarvis-$(date +%Y%m%d).dump
+
+# Plain SQL (human-readable)
+pg_dump "$DATABASE_URL" --no-acl --no-owner -f jarvis-$(date +%Y%m%d).sql
+```
+
+### Restore to a new database
+
+```bash
+# From custom-format dump
+pg_restore --no-acl --no-owner -d "$TARGET_DATABASE_URL" jarvis-20260727.dump
+
+# From plain SQL
+psql "$TARGET_DATABASE_URL" -f jarvis-20260727.sql
+```
+
+---
+
+## Self-hosted VPS setup (AUTH_MODE=basic)
+
+### 1. Create the database
+
+```bash
+createdb jarvis
+export DATABASE_URL="postgres://postgres@localhost/jarvis"
+```
+
+### 2. Set environment variables
+
+```bash
+# /etc/environment or your deployment tool of choice
+DATABASE_URL="postgres://user:pass@localhost:5432/jarvis"
+INGEST_TOKEN="$(openssl rand -hex 32)"
+AUTH_MODE="basic"
+AUTH_BASIC_USER="admin"
+AUTH_BASIC_PASSWORD_HASH="$(node -e "const b=require('bcryptjs'); b.hash('your-password', 10).then(console.log)")"
+PORT=8080
+```
+
+### 3. Build and start
+
+```bash
+cd /path/to/workspace
+
+# Install dependencies
 pnpm install
-```
 
----
-
-## 2. Provision PostgreSQL
-
-Create a dedicated database and user:
-
-```sql
-CREATE DATABASE jarvis;
-CREATE USER jarvis_user WITH PASSWORD 'strong-password';
-GRANT ALL PRIVILEGES ON DATABASE jarvis TO jarvis_user;
-```
-
----
-
-## 3. Environment variables
-
-Create a `.env` file (never commit it):
-
-```env
-# Required
-DATABASE_URL=postgres://jarvis_user:strong-password@localhost:5432/jarvis
-INGEST_TOKEN=<long-random-secret>    # used by the Mac push script
-PORT=3001
-
-# Auth mode — choose one
-AUTH_MODE=basic                        # for self-host (no Replit OIDC)
-AUTH_BASIC_USER=admin
-AUTH_BASIC_PASSWORD_HASH=<bcrypt-hash> # generate below
-
-# Optional — only needed in AUTH_MODE=replit
-# SESSION_SECRET=<random>
-# OWNER_USER_ID=<your-replit-user-id>
-# ISSUER_URL=https://replit.com/oidc
-# REPL_ID=<your-repl-id>
-```
-
-**Generate a bcrypt hash for AUTH_BASIC_PASSWORD_HASH:**
-
-```bash
-node -e "
-const bcrypt = require('bcryptjs');
-bcrypt.hash('your-password', 12).then(h => console.log(h));
-"
-```
-
-**Generate INGEST_TOKEN:**
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
-
----
-
-## 4. Schema migrations
-
-Migrations run automatically on every server start (additive only —
-`CREATE TABLE IF NOT EXISTS`). No manual steps required.
-
-```bash
-# Build and start
+# Build the API server
 pnpm --filter @workspace/api-server run build
-pnpm --filter @workspace/api-server run start
+
+# Build the dashboard
+pnpm --filter @workspace/dashboard run build
+
+# Start (migrations run automatically on boot)
+node artifacts/api-server/dist/index.js
 ```
 
-The server will log `Database migrations complete` on first boot and on
-every subsequent start without any destructive change.
+### 4. Serve the dashboard
+
+The dashboard builds to `artifacts/dashboard/dist/public/`. Serve it with nginx
+or any static file server. The API server and the static dashboard can live on
+the same host — configure nginx to proxy `/api/` to the API server and serve
+everything else as static files.
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name jarvis.yourdomain.com;
+
+    # Static dashboard
+    root /path/to/workspace/artifacts/dashboard/dist/public;
+    try_files $uri $uri/ /index.html;
+
+    # Proxy API calls
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto https;
+    }
+}
+```
+
+> **Note:** In AUTH_MODE=basic, there is no Replit OIDC dependency, so the app
+> works on any host without the `REPL_ID` or `OWNER_USER_ID` variables.
 
 ---
 
-## 5. Mac push-script setup
+## Replit-specific items
 
-In your Mac pipeline script, set:
+| Item | Notes |
+|---|---|
+| `AUTH_MODE=replit` | Uses Replit OIDC (`https://replit.com/oidc`). OIDC redirect URI is auto-derived from `REPL_ID`. Not portable off Replit. |
+| `OWNER_USER_ID` | Your Replit numeric user ID. Find it: open your profile at `https://replit.com/@<handle>`, run `fetch('/api/auth/me').then(r=>r.json()).then(d=>console.log(d.id))` in the browser console. |
+| Session storage | Sessions stored in the `sessions` table (PostgreSQL). No in-memory session store — horizontal scaling safe. |
+| Secrets | `INGEST_TOKEN` and `SESSION_SECRET` are stored as Replit Secrets and never checked into the repo. |
+| Workflows | Two managed workflows: `API Server` (Express) and `Dashboard` (Vite). Replit starts them automatically. |
+
+---
+
+## First-time setup (Replit)
+
+1. Fork or clone the repl.
+2. Set secrets in the Replit Secrets panel:
+   - `INGEST_TOKEN` — any random string (`openssl rand -hex 32`)
+   - `SESSION_SECRET` — any random string (`openssl rand -hex 32`)
+3. Set environment variables:
+   - `OWNER_USER_ID` — your Replit user ID (see above)
+4. Start the workflows. The API server runs `pnpm --filter @workspace/api-server run dev`.
+5. Send your first ingest from the Mac:
 
 ```bash
-export JARVIS_URL=https://your-vps-domain/api
-export INGEST_TOKEN=<same-value-as-server>
-```
-
-Then POST the §5 payload:
-
-```bash
-curl -X POST "$JARVIS_URL/ingest" \
+curl -X POST https://<your-repl-domain>/api/ingest \
   -H "Authorization: Bearer $INGEST_TOKEN" \
   -H "Content-Type: application/json" \
-  -d @/tmp/snapshot.json
+  -d @tracker-export.json
 ```
 
 ---
 
-## 6. Staying up to date
+## Migration notes
 
-- Only additive DB changes are made (new columns use defaults, new tables
-  are created via IF NOT EXISTS). No destructive migrations.
-- After pulling updates, rebuild and restart — migrations run automatically.
-- Never delete or rename a column; add new ones instead.
+- All schema migrations are `CREATE TABLE IF NOT EXISTS` — running the server on
+  a new database automatically creates all tables on boot. No separate migration
+  step needed.
+- Adding a new table: add `CREATE TABLE IF NOT EXISTS ...` in
+  `artifacts/api-server/src/lib/migrate.ts`. Migrations are idempotent and run
+  on every boot.
+- Column additions require a new `ALTER TABLE ... ADD COLUMN IF NOT EXISTS ...`
+  block in `migrate.ts`.
 
 ---
 
-## 7. AUTH_MODE reference
+## Running tests
 
-| Mode | When to use | Required env vars |
-|------|-------------|-------------------|
-| `replit` | Hosted on Replit | `REPL_ID`, `OWNER_USER_ID`, `SESSION_SECRET` |
-| `basic`  | Self-hosted VPS  | `AUTH_BASIC_USER`, `AUTH_BASIC_PASSWORD_HASH` |
+```bash
+# All API server tests (vitest + supertest, real PostgreSQL)
+pnpm --filter @workspace/api-server run test
 
-The `INGEST_TOKEN` is always required regardless of auth mode.
+# TypeScript type-check all packages
+pnpm run typecheck:libs
+
+# Regenerate Zod schemas + React Query hooks from the OpenAPI spec
+pnpm --filter @workspace/api-spec run codegen
+```
