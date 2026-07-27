@@ -89,6 +89,79 @@ function isoDay(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+// ─── Window Bands ─────────────────────────────────────────────────────────────
+
+interface BandSegment {
+  d: SeasonDeadline;
+  startCol: number;
+  endCol: number; // inclusive
+  lane: number;
+  startsHere: boolean; // opens_date falls within this week
+  endsHere: boolean; // closes_date falls within this week
+}
+
+/** Urgency color for a window band, based on days until close. */
+function bandColorClass(closesDays: number | null): string {
+  if (closesDays === null || closesDays < 0)
+    return "bg-zinc-800/60 text-zinc-500 ring-zinc-700/60 hover:bg-zinc-800";
+  if (closesDays <= 3)
+    return "bg-red-900/60 text-red-300 ring-red-700/60 hover:bg-red-900/80";
+  if (closesDays <= 14)
+    return "bg-amber-900/60 text-amber-300 ring-amber-700/60 hover:bg-amber-900/80";
+  return "bg-emerald-900/60 text-emerald-300 ring-emerald-700/60 hover:bg-emerald-900/80";
+}
+
+/** Deadlines that render as bands: both dates present and opens <= closes. */
+function isWindowDeadline(d: SeasonDeadline): boolean {
+  return !!d.opens_date && !!d.closes_date && d.opens_date <= d.closes_date;
+}
+
+/**
+ * Compute band segments for one week row. Each segment covers the contiguous
+ * columns whose date falls inside [opens_date, closes_date]. Lanes are assigned
+ * greedily so overlapping windows stack instead of colliding.
+ */
+function computeWeekSegments(weekIsos: (string | null)[], windowDeadlines: SeasonDeadline[]): BandSegment[] {
+  const raw: Omit<BandSegment, "lane">[] = [];
+  for (const d of windowDeadlines) {
+    let startCol = -1;
+    let endCol = -1;
+    for (let c = 0; c < 7; c++) {
+      const iso = weekIsos[c];
+      if (iso && iso >= d.opens_date! && iso <= d.closes_date!) {
+        if (startCol === -1) startCol = c;
+        endCol = c;
+      }
+    }
+    if (startCol === -1) continue;
+    raw.push({
+      d,
+      startCol,
+      endCol,
+      startsHere: weekIsos.includes(d.opens_date!),
+      endsHere: weekIsos.includes(d.closes_date!),
+    });
+  }
+  // Stable order: earlier opens first, then longer windows
+  raw.sort((a, b) =>
+    (a.d.opens_date! + a.d.closes_date!).localeCompare(b.d.opens_date! + b.d.closes_date!) || a.d.id - b.d.id
+  );
+  const laneEnds: number[] = []; // per lane, last occupied column
+  return raw.map((seg) => {
+    let lane = laneEnds.findIndex((end) => end < seg.startCol);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(seg.endCol);
+    } else {
+      laneEnds[lane] = seg.endCol;
+    }
+    return { ...seg, lane };
+  });
+}
+
+const BAND_TOP = 24; // px below the day number
+const LANE_HEIGHT = 16; // px per band lane
+
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
 function DeadlineForm({
@@ -321,6 +394,7 @@ function GridCell({
   deadlines,
   isToday,
   selected,
+  laneCount,
   onClick,
 }: {
   day: number | null;
@@ -328,20 +402,26 @@ function GridCell({
   deadlines: SeasonDeadline[];
   isToday: boolean;
   selected: boolean;
+  laneCount: number;
   onClick: () => void;
 }) {
+  const minHeight = 60 + laneCount * LANE_HEIGHT;
+
   if (day === null) {
-    return <div className="min-h-[60px]" />;
+    return <div style={{ minHeight }} />;
   }
 
-  const opens = deadlines.filter((d) => d.opens_date === iso);
-  const closes = deadlines.filter((d) => d.closes_date === iso);
+  // Window deadlines (both dates) render as bands in the week overlay, so
+  // only single-date deadlines keep their per-day markers here.
+  const opens = deadlines.filter((d) => d.opens_date === iso && !isWindowDeadline(d));
+  const closes = deadlines.filter((d) => d.closes_date === iso && !isWindowDeadline(d));
 
   return (
     <button
       onClick={onClick}
+      style={{ minHeight }}
       className={cn(
-        "min-h-[60px] p-1 rounded text-left border transition-colors w-full",
+        "p-1 rounded text-left border transition-colors w-full",
         selected
           ? "border-blue-700 bg-blue-950/30"
           : isToday
@@ -355,7 +435,7 @@ function GridCell({
       )}>
         {day}
       </div>
-      <div className="space-y-0.5">
+      <div className="space-y-0.5" style={{ marginTop: laneCount * LANE_HEIGHT }}>
         {opens.map((d) => (
           <div key={`o-${d.id}`} className="text-[9px] bg-emerald-950/60 text-emerald-400 rounded px-0.5 truncate leading-4">
             ↑ {d.company}
@@ -382,6 +462,7 @@ export default function CalendarPage() {
   const [year, setYear] = useState(todayYear);
   const [month, setMonth] = useState(todayMonth);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDeadlineId, setSelectedDeadlineId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -484,16 +565,37 @@ export default function CalendarPage() {
     if (month === 0) { setYear((y) => y - 1); setMonth(11); }
     else setMonth((m) => m - 1);
     setSelectedDay(null);
+    setSelectedDeadlineId(null);
   }
   function nextMonth() {
     if (month === 11) { setYear((y) => y + 1); setMonth(0); }
     else setMonth((m) => m + 1);
     setSelectedDay(null);
+    setSelectedDeadlineId(null);
   }
 
   const selectedDayDeadlines = selectedDay
-    ? deadlines.filter((d) => d.opens_date === selectedDay || d.closes_date === selectedDay)
+    ? deadlines.filter(
+        (d) =>
+          d.opens_date === selectedDay ||
+          d.closes_date === selectedDay ||
+          (isWindowDeadline(d) && d.opens_date! <= selectedDay && selectedDay <= d.closes_date!)
+      )
     : [];
+  const selectedDeadline = selectedDeadlineId !== null
+    ? deadlines.find((d) => d.id === selectedDeadlineId) ?? null
+    : null;
+
+  // Split the month grid into week rows and precompute window bands per week
+  const windowDeadlines = deadlines.filter(isWindowDeadline);
+  const weeks: { days: (number | null)[]; isos: (string | null)[]; segments: BandSegment[]; laneCount: number }[] = [];
+  for (let w = 0; w < grid.length / 7; w++) {
+    const days = grid.slice(w * 7, w * 7 + 7);
+    const isos = days.map((d) => (d ? isoDay(year, month, d) : null));
+    const segments = computeWeekSegments(isos, windowDeadlines);
+    const laneCount = segments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
+    weeks.push({ days, isos, segments, laneCount });
+  }
 
   // Sort deadlines by soonest date
   const sortedDeadlines = [...deadlines].sort((a, b) => {
@@ -628,24 +730,62 @@ export default function CalendarPage() {
                 ))}
               </div>
 
-              {/* Day grid */}
-              <div className="grid grid-cols-7 gap-1">
-                {grid.map((day, i) => {
-                  const iso = day ? isoDay(year, month, day) : null;
-                  return (
-                    <GridCell
-                      key={i}
-                      day={day}
-                      iso={iso}
-                      deadlines={deadlines}
-                      isToday={iso === today}
-                      selected={iso === selectedDay}
-                      onClick={() => {
-                        if (iso) setSelectedDay(selectedDay === iso ? null : iso);
-                      }}
-                    />
-                  );
-                })}
+              {/* Day grid — one relative row per week so window bands can overlay */}
+              <div className="space-y-1">
+                {weeks.map((week, w) => (
+                  <div key={w} className="relative grid grid-cols-7 gap-1">
+                    {week.days.map((day, i) => {
+                      const iso = week.isos[i]!;
+                      return (
+                        <GridCell
+                          key={i}
+                          day={day}
+                          iso={iso}
+                          deadlines={deadlines}
+                          isToday={iso === today}
+                          selected={iso === selectedDay}
+                          laneCount={week.laneCount}
+                          onClick={() => {
+                            if (iso) {
+                              setSelectedDeadlineId(null);
+                              setSelectedDay(selectedDay === iso ? null : iso);
+                            }
+                          }}
+                        />
+                      );
+                    })}
+                    {week.segments.map((seg) => {
+                      const span = seg.endCol - seg.startCol + 1;
+                      const closesDays = daysFromNow(seg.d.closes_date);
+                      return (
+                        <button
+                          key={`${seg.d.id}-${seg.startCol}`}
+                          title={`${seg.d.company}${seg.d.program ? ` · ${seg.d.program}` : ""} — ${formatDate(seg.d.opens_date)} → ${formatDate(seg.d.closes_date)}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedDay(null);
+                            setSelectedDeadlineId(selectedDeadlineId === seg.d.id ? null : seg.d.id);
+                          }}
+                          style={{
+                            left: `calc(${seg.startCol} * (100% + 4px) / 7 + 2px)`,
+                            width: `calc(${span} * (100% + 4px) / 7 - 4px - 4px)`,
+                            top: BAND_TOP + seg.lane * LANE_HEIGHT,
+                            height: LANE_HEIGHT - 3,
+                          }}
+                          className={cn(
+                            "absolute z-10 flex items-center px-1 text-[9px] font-medium ring-1 ring-inset transition-colors truncate",
+                            seg.startsHere ? "rounded-l" : "rounded-l-none",
+                            seg.endsHere ? "rounded-r" : "rounded-r-none",
+                            bandColorClass(closesDays),
+                            selectedDeadlineId === seg.d.id && "ring-2 ring-blue-500"
+                          )}
+                        >
+                          <span className="truncate">{seg.d.company}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
 
               {/* Legend */}
@@ -658,30 +798,75 @@ export default function CalendarPage() {
                   <span className="inline-block w-2 h-2 bg-red-950/60 rounded-sm" />
                   <span className="text-red-700">Closes</span>
                 </span>
+                <span className="text-[10px] text-zinc-700 flex items-center gap-1 ml-2">
+                  <span className="inline-block w-4 h-2 bg-emerald-900/60 rounded-sm" />
+                  <span className="inline-block w-4 h-2 bg-amber-900/60 rounded-sm" />
+                  <span className="inline-block w-4 h-2 bg-red-900/60 rounded-sm" />
+                  <span>Window (far → closing soon)</span>
+                </span>
               </div>
             </div>
 
-            {/* Selected day panel */}
-            {selectedDay && (
+            {/* Detail panel: selected window band or selected day */}
+            {(selectedDeadline || selectedDay) && (
               <div className="w-64 shrink-0 border-l border-zinc-800 overflow-y-auto p-4">
-                <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">
-                  {new Date(selectedDay + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-                </p>
-                {selectedDayDeadlines.length === 0 ? (
-                  <p className="text-xs text-zinc-700">No events</p>
-                ) : (
-                  <div className="space-y-2">
-                    {selectedDayDeadlines.map((d) => (
-                      <div key={d.id} className="text-xs bg-zinc-900 rounded p-2">
-                        <p className="font-medium text-zinc-200">{d.company}</p>
-                        {d.program && <p className="text-zinc-500 text-[11px]">{d.program}</p>}
-                        <div className="mt-1 space-y-0.5">
-                          {d.opens_date === selectedDay && <p className="text-[10px] text-emerald-500">↑ Opens today</p>}
-                          {d.closes_date === selectedDay && <p className="text-[10px] text-red-400">↓ Closes today</p>}
-                        </div>
+                {selectedDeadline ? (
+                  <>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Application Window</p>
+                    <div className="text-xs bg-zinc-900 rounded p-2">
+                      <p className="font-medium text-zinc-200">{selectedDeadline.company}</p>
+                      {selectedDeadline.program && <p className="text-zinc-500 text-[11px]">{selectedDeadline.program}</p>}
+                      <div className="mt-1.5 space-y-0.5 font-mono">
+                        <p className="text-[10px]">
+                          <span className="text-zinc-700">opens </span>
+                          <span className="text-emerald-500">{formatDate(selectedDeadline.opens_date)}</span>
+                        </p>
+                        <p className="text-[10px]">
+                          <span className="text-zinc-700">closes </span>
+                          <span className={urgencyClass(daysFromNow(selectedDeadline.closes_date))}>
+                            {formatDate(selectedDeadline.closes_date)}
+                          </span>
+                          <span className="ml-1 text-zinc-600">{daysLabel(daysFromNow(selectedDeadline.closes_date))}</span>
+                        </p>
                       </div>
-                    ))}
-                  </div>
+                      {selectedDeadline.notes && <p className="text-[10px] text-zinc-600 mt-1.5">{selectedDeadline.notes}</p>}
+                      {selectedDeadline.url && (
+                        <a
+                          href={selectedDeadline.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-blue-400 hover:underline mt-1.5 inline-block truncate max-w-full"
+                        >
+                          {selectedDeadline.url}
+                        </a>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">
+                      {new Date(selectedDay! + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                    </p>
+                    {selectedDayDeadlines.length === 0 ? (
+                      <p className="text-xs text-zinc-700">No events</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {selectedDayDeadlines.map((d) => (
+                          <div key={d.id} className="text-xs bg-zinc-900 rounded p-2">
+                            <p className="font-medium text-zinc-200">{d.company}</p>
+                            {d.program && <p className="text-zinc-500 text-[11px]">{d.program}</p>}
+                            <div className="mt-1 space-y-0.5">
+                              {d.opens_date === selectedDay && <p className="text-[10px] text-emerald-500">↑ Opens today</p>}
+                              {d.closes_date === selectedDay && <p className="text-[10px] text-red-400">↓ Closes today</p>}
+                              {d.opens_date !== selectedDay && d.closes_date !== selectedDay && isWindowDeadline(d) && (
+                                <p className="text-[10px] text-amber-400">▬ Window active</p>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
