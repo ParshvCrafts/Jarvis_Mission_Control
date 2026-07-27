@@ -917,10 +917,13 @@ components:
           description: Raw CSV text. Header row required with at minimum a "company" column.
     CsvImportResult:
       type: object
-      required: [inserted, errors]
+      required: [inserted, duplicates, errors]
       properties:
         inserted:
           type: integer
+        duplicates:
+          type: integer
+          description: Rows skipped because an identical deadline (company+program+dates) already exists.
         errors:
           type: array
           items:

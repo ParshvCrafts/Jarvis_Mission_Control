@@ -166,6 +166,8 @@ export interface CsvImportRequest {
 
 export interface CsvImportResult {
   inserted: number;
+  /** Rows skipped because an identical deadline (company+program+dates) already exists. */
+  duplicates: number;
   errors: string[];
 }
 

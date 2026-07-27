@@ -269,10 +269,16 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
       await qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() });
       setStatus("done");
       setSkipped(res.errors);
+      const parts = [`${res.inserted} new deadline${res.inserted !== 1 ? "s" : ""} imported`];
+      if (res.duplicates > 0) {
+        parts.push(`${res.duplicates} duplicate${res.duplicates !== 1 ? "s" : ""} skipped`);
+      }
       if (res.errors.length > 0) {
-        toast.warning(`Imported ${res.inserted} deadline${res.inserted !== 1 ? "s" : ""} — ${res.errors.length} row${res.errors.length !== 1 ? "s" : ""} skipped (see details below)`);
+        toast.warning(`${parts.join(", ")} — ${res.errors.length} row${res.errors.length !== 1 ? "s" : ""} skipped (see details below)`);
+      } else if (res.duplicates > 0) {
+        toast.info(parts.join(", "));
       } else {
-        toast.success(`Imported ${res.inserted} deadline${res.inserted !== 1 ? "s" : ""}`);
+        toast.success(parts.join(", "));
       }
       onImport();
       setTimeout(() => setStatus("idle"), 3000);

@@ -239,11 +239,48 @@ router.post("/deadlines/csv-import", async (req, res) => {
     });
   }
 
-  if (rows.length > 0) {
-    await db.insert(seasonDeadlinesTable).values(rows);
+  // Dedupe: skip rows that match an existing deadline on company+program+dates
+  // (case-insensitive company/program), and also dedupe within the file itself.
+  const existing = await db
+    .select({
+      company: seasonDeadlinesTable.company,
+      program: seasonDeadlinesTable.program,
+      opensDate: seasonDeadlinesTable.opensDate,
+      closesDate: seasonDeadlinesTable.closesDate,
+    })
+    .from(seasonDeadlinesTable);
+
+  const keyOf = (r: {
+    company?: string | null;
+    program?: string | null;
+    opensDate?: string | null;
+    closesDate?: string | null;
+  }) =>
+    [
+      (r.company ?? "").trim().toLowerCase(),
+      (r.program ?? "").trim().toLowerCase(),
+      r.opensDate ?? "",
+      r.closesDate ?? "",
+    ].join("\u0000");
+
+  const seen = new Set(existing.map(keyOf));
+  const toInsert: typeof rows = [];
+  let duplicates = 0;
+  for (const r of rows) {
+    const key = keyOf(r);
+    if (seen.has(key)) {
+      duplicates++;
+    } else {
+      seen.add(key);
+      toInsert.push(r);
+    }
   }
 
-  res.json({ inserted: rows.length, errors });
+  if (toInsert.length > 0) {
+    await db.insert(seasonDeadlinesTable).values(toInsert);
+  }
+
+  res.json({ inserted: toInsert.length, duplicates, errors });
 });
 
 /** Simple CSV line parser — handles quoted fields containing commas. */

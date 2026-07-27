@@ -495,6 +495,7 @@ export const ImportDeadlinesCsvBody = zod.object({
 
 export const ImportDeadlinesCsvResponse = zod.object({
   "inserted": zod.number(),
+  "duplicates": zod.number().describe('Rows skipped because an identical deadline (company+program+dates) already exists.'),
   "errors": zod.array(zod.string())
 })
 

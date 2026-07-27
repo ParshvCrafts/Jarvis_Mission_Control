@@ -299,6 +299,42 @@ describe("POST /api/deadlines/csv-import", () => {
     expect(list.body.deadlines[0].company).toBe("Smith, Jones & Co");
   });
 
+  it("re-importing the same CSV skips duplicates instead of re-inserting", async () => {
+    await db.delete(seasonDeadlinesTable);
+    const csv = [
+      "company,program,opens_date,closes_date",
+      "Dup Corp,SWE,2026-09-01,2026-10-15",
+      "Other Inc,PM,2026-10-01,2026-11-01",
+    ].join("\n");
+
+    const first = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(first.body.inserted).toBe(2);
+    expect(first.body.duplicates).toBe(0);
+
+    const second = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(second.status).toBe(200);
+    expect(second.body.inserted).toBe(0);
+    expect(second.body.duplicates).toBe(2);
+
+    const list = await agent().get("/api/deadlines");
+    expect(list.body.deadlines).toHaveLength(2);
+  });
+
+  it("dedupes duplicate rows within a single CSV and matches company case-insensitively", async () => {
+    await db.delete(seasonDeadlinesTable);
+    const csv = [
+      "company,program,opens_date,closes_date",
+      "Same Co,SWE,2026-09-01,2026-10-15",
+      "SAME CO,swe,2026-09-01,2026-10-15",
+      "Same Co,SWE,2026-09-02,2026-10-15",
+    ].join("\n");
+
+    const res = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(res.status).toBe(200);
+    expect(res.body.inserted).toBe(2);
+    expect(res.body.duplicates).toBe(1);
+  });
+
   it("ignores non-matching date formats (stores as null)", async () => {
     await db.delete(seasonDeadlinesTable);
     // Both dates don't match YYYY-MM-DD pattern → stored as null
