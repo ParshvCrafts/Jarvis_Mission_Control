@@ -51,6 +51,67 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export interface ApplicationRow {
+  num: number;
+  date: string;
+  company: string;
+  role: string;
+  score: string;
+  status: string;
+  contact: string;
+  via: string;
+  resume: string;
+  letter: string;
+  report: string;
+  notes: string;
+  /** Days since last status change (LA timezone). 0 if same day. */
+  days_in_stage: number;
+  /** True if status=applied and no status event in 21 days. */
+  has_ghost_flag: boolean;
+  resume_present: boolean;
+  letter_present: boolean;
+}
+
+export interface ApplicationListResponse {
+  items: ApplicationRow[];
+  total: number;
+  page: number;
+  page_size: number;
+  /**
+     * ISO-8601 timestamp of the last successful ingest, or null.
+     * @nullable
+     */
+  last_sync_at?: string | null;
+}
+
+export interface StatusEventRow {
+  id: number;
+  num: number;
+  date: string;
+  from_status: string;
+  to_status: string;
+  source: string;
+  note: string;
+}
+
+export interface EvalSummaryRow {
+  num: number;
+  url: string;
+  company: string;
+  role: string;
+  score: string;
+  recommendation: string;
+  legitimacy: string;
+  blockers: string[];
+  warnings: string[];
+}
+
+export interface ApplicationDetail {
+  application: ApplicationRow;
+  status_events: StatusEventRow[];
+  eval?: EvalSummaryRow | null;
+}
+
 /**
  * Bearer <session-token> for mobile clients.
  */
@@ -69,4 +130,44 @@ iss?: string;
 export type LogoutBrowserSessionParams = {
 returnTo?: string;
 };
+
+export type ListApplicationsParams = {
+status?: string;
+score_band?: ListApplicationsScoreBand;
+company?: string;
+sort_col?: ListApplicationsSortCol;
+sort_dir?: ListApplicationsSortDir;
+page?: number;
+page_size?: number;
+};
+
+export type ListApplicationsScoreBand = typeof ListApplicationsScoreBand[keyof typeof ListApplicationsScoreBand];
+
+
+export const ListApplicationsScoreBand = {
+  unscored: 'unscored',
+  low: 'low',
+  mid: 'mid',
+  high: 'high',
+} as const;
+
+export type ListApplicationsSortCol = typeof ListApplicationsSortCol[keyof typeof ListApplicationsSortCol];
+
+
+export const ListApplicationsSortCol = {
+  date: 'date',
+  company: 'company',
+  role: 'role',
+  score: 'score',
+  status: 'status',
+  days_in_stage: 'days_in_stage',
+} as const;
+
+export type ListApplicationsSortDir = typeof ListApplicationsSortDir[keyof typeof ListApplicationsSortDir];
+
+
+export const ListApplicationsSortDir = {
+  asc: 'asc',
+  desc: 'desc',
+} as const;
 

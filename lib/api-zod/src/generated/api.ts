@@ -108,3 +108,96 @@ export const LogoutMobileSessionResponse = zod.object({
 })
 
 
+/**
+ * @summary List applications with optional filters and sorting
+ */
+export const listApplicationsQuerySortColDefault = `date`;
+export const listApplicationsQuerySortDirDefault = `desc`;
+export const listApplicationsQueryPageDefault = 1;
+export const listApplicationsQueryPageSizeDefault = 50;
+
+export const ListApplicationsQueryParams = zod.object({
+  "status": zod.coerce.string().optional(),
+  "score_band": zod.enum(['unscored', 'low', 'mid', 'high']).optional(),
+  "company": zod.coerce.string().optional(),
+  "sort_col": zod.enum(['date', 'company', 'role', 'score', 'status', 'days_in_stage']).default(listApplicationsQuerySortColDefault),
+  "sort_dir": zod.enum(['asc', 'desc']).default(listApplicationsQuerySortDirDefault),
+  "page": zod.coerce.number().default(listApplicationsQueryPageDefault),
+  "page_size": zod.coerce.number().default(listApplicationsQueryPageSizeDefault)
+})
+
+export const ListApplicationsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "num": zod.number(),
+  "date": zod.string(),
+  "company": zod.string(),
+  "role": zod.string(),
+  "score": zod.string(),
+  "status": zod.string(),
+  "contact": zod.string(),
+  "via": zod.string(),
+  "resume": zod.string(),
+  "letter": zod.string(),
+  "report": zod.string(),
+  "notes": zod.string(),
+  "days_in_stage": zod.number().describe('Days since last status change (LA timezone). 0 if same day.'),
+  "has_ghost_flag": zod.boolean().describe('True if status=applied and no status event in 21 days.'),
+  "resume_present": zod.boolean(),
+  "letter_present": zod.boolean()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "page_size": zod.number(),
+  "last_sync_at": zod.string().nullish().describe('ISO-8601 timestamp of the last successful ingest, or null.')
+})
+
+
+/**
+ * @summary Get full application detail with status history and eval
+ */
+export const GetApplicationDetailParams = zod.object({
+  "num": zod.coerce.number()
+})
+
+export const GetApplicationDetailResponse = zod.object({
+  "application": zod.object({
+  "num": zod.number(),
+  "date": zod.string(),
+  "company": zod.string(),
+  "role": zod.string(),
+  "score": zod.string(),
+  "status": zod.string(),
+  "contact": zod.string(),
+  "via": zod.string(),
+  "resume": zod.string(),
+  "letter": zod.string(),
+  "report": zod.string(),
+  "notes": zod.string(),
+  "days_in_stage": zod.number().describe('Days since last status change (LA timezone). 0 if same day.'),
+  "has_ghost_flag": zod.boolean().describe('True if status=applied and no status event in 21 days.'),
+  "resume_present": zod.boolean(),
+  "letter_present": zod.boolean()
+}),
+  "status_events": zod.array(zod.object({
+  "id": zod.number(),
+  "num": zod.number(),
+  "date": zod.string(),
+  "from_status": zod.string(),
+  "to_status": zod.string(),
+  "source": zod.string(),
+  "note": zod.string()
+})),
+  "eval": zod.union([zod.object({
+  "num": zod.number(),
+  "url": zod.string(),
+  "company": zod.string(),
+  "role": zod.string(),
+  "score": zod.string(),
+  "recommendation": zod.string(),
+  "legitimacy": zod.string(),
+  "blockers": zod.array(zod.string()),
+  "warnings": zod.array(zod.string())
+}),zod.null()]).optional()
+})
+
+

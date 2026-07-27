@@ -59,6 +59,7 @@ async function refreshIfExpired(
 /**
  * Loads the authenticated user from the session cookie (replit mode only).
  * In basic mode this is a no-op — authentication happens entirely in requireAuth.
+ * DEV_SKIP_AUTH=true (development only) sets a fake user for UI iteration.
  */
 export async function authMiddleware(
   req: Request,
@@ -68,6 +69,22 @@ export async function authMiddleware(
   req.isAuthenticated = function (this: Request) {
     return this.user != null;
   } as Request["isAuthenticated"];
+
+  // Dev bypass — never runs in production
+  if (
+    process.env["DEV_SKIP_AUTH"] === "true" &&
+    process.env["NODE_ENV"] !== "production"
+  ) {
+    req.user = {
+      id: "dev-user",
+      email: "dev@jarvis.local",
+      firstName: "Dev",
+      lastName: null,
+      profileImageUrl: null,
+    };
+    next();
+    return;
+  }
 
   if (AUTH_MODE !== "replit") {
     next();

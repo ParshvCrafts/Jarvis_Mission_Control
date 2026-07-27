@@ -2,20 +2,18 @@ import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import authRouter from "./auth";
 import ingestRouter from "./ingest";
+import applicationsRouter from "./applications";
 import { requireAuth } from "../middlewares/authMiddleware";
 
 const router: IRouter = Router();
 
-// Health — public
+// Public routes
 router.use(healthRouter);
-
-// Ingest — token-authed (no session required), public from route perspective
 router.use(ingestRouter);
-
-// Auth — OIDC login/callback/logout/user (public redirects + session-read)
 router.use(authRouter);
 
-// All routes below this point require authentication
+// All routes below require authentication
 router.use(requireAuth);
+router.use(applicationsRouter);
 
 export default router;

@@ -20,11 +20,14 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ApplicationDetail,
+  ApplicationListResponse,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  ListApplicationsParams,
   LogoutBrowserSessionParams,
   LogoutSuccess,
   MobileTokenExchangeRequest,
@@ -606,4 +609,165 @@ export const useLogoutMobileSession = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getLogoutMobileSessionMutationOptions(options));
     }
+
+export const getListApplicationsUrl = (params?: ListApplicationsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/applications?${stringifiedParams}` : `/api/applications`
+}
+
+/**
+ * @summary List applications with optional filters and sorting
+ */
+export const listApplications = async (params?: ListApplicationsParams, options?: RequestInit): Promise<ApplicationListResponse> => {
+
+  return customFetch<ApplicationListResponse>(getListApplicationsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListApplicationsQueryKey = (params?: ListApplicationsParams,) => {
+    return [
+    `/api/applications`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListApplicationsQueryOptions = <TData = Awaited<ReturnType<typeof listApplications>>, TError = ErrorType<ErrorEnvelope>>(params?: ListApplicationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApplications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListApplicationsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listApplications>>> = ({ signal }) => listApplications(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listApplications>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListApplicationsQueryResult = NonNullable<Awaited<ReturnType<typeof listApplications>>>
+export type ListApplicationsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List applications with optional filters and sorting
+ */
+
+export function useListApplications<TData = Awaited<ReturnType<typeof listApplications>>, TError = ErrorType<ErrorEnvelope>>(
+ params?: ListApplicationsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listApplications>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListApplicationsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetApplicationDetailUrl = (num: number,) => {
+
+
+
+
+  return `/api/applications/${num}`
+}
+
+/**
+ * @summary Get full application detail with status history and eval
+ */
+export const getApplicationDetail = async (num: number, options?: RequestInit): Promise<ApplicationDetail> => {
+
+  return customFetch<ApplicationDetail>(getGetApplicationDetailUrl(num),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetApplicationDetailQueryKey = (num: number,) => {
+    return [
+    `/api/applications/${num}`
+    ] as const;
+    }
+
+
+export const getGetApplicationDetailQueryOptions = <TData = Awaited<ReturnType<typeof getApplicationDetail>>, TError = ErrorType<ErrorEnvelope>>(num: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApplicationDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApplicationDetailQueryKey(num);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApplicationDetail>>> = ({ signal }) => getApplicationDetail(num, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: num !== null && num !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApplicationDetail>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetApplicationDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getApplicationDetail>>>
+export type GetApplicationDetailQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Get full application detail with status history and eval
+ */
+
+export function useGetApplicationDetail<TData = Awaited<ReturnType<typeof getApplicationDetail>>, TError = ErrorType<ErrorEnvelope>>(
+ num: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getApplicationDetail>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetApplicationDetailQueryOptions(num,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
