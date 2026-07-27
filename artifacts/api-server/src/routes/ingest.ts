@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { Router, type IRouter, type Request, type Response } from "express";
 import rateLimit from "express-rate-limit";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and, lt } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   ingestSnapshotsTable,
@@ -292,6 +292,10 @@ router.post(
     // (Full logic implemented in Stage 3; seam exists here)
     await autoApplyPendingChanges(data);
 
+    // ── Prune stale pending changes ────────────────────────────────────────
+    // Applied/dismissed rows older than 30 days are no longer useful.
+    await pruneStalePendingChanges();
+
     req.log.info({ counts }, "Ingest complete");
     res.json({
       ok: true,
@@ -349,6 +353,26 @@ async function autoApplyPendingChanges(data: {
         .where(eq(pendingChangesTable.id, change.id));
     }
   }
+}
+
+/**
+ * Delete applied/dismissed pending changes older than 30 days.
+ * Uses the (state, created_at) index; never touches pending/copied rows.
+ */
+const PENDING_CHANGE_RETENTION_DAYS = 30;
+
+async function pruneStalePendingChanges(): Promise<void> {
+  const cutoff = new Date(
+    Date.now() - PENDING_CHANGE_RETENTION_DAYS * 24 * 60 * 60 * 1000,
+  );
+  await db
+    .delete(pendingChangesTable)
+    .where(
+      and(
+        inArray(pendingChangesTable.state, ["applied", "dismissed"]),
+        lt(pendingChangesTable.createdAt, cutoff),
+      ),
+    );
 }
 
 export default router;

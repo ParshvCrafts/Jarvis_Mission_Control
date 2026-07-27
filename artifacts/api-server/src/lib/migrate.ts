@@ -163,6 +163,9 @@ export async function runMigrations(): Promise<void> {
         command TEXT NOT NULL,
         state TEXT NOT NULL DEFAULT 'pending'
       );
+      -- Efficient pruning of stale applied/dismissed rows
+      CREATE INDEX IF NOT EXISTS pending_changes_state_created_at_idx
+        ON pending_changes (state, created_at);
     `);
 
     // Season deadlines — manual entries + CSV import, pre-seeded empty
