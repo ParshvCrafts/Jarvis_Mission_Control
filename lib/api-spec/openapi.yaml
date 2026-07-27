@@ -20,6 +20,8 @@ tags:
     description: Today view aggregated data.
   - name: Queue
     description: Discovery queue triage.
+  - name: Analytics
+    description: Funnel, score-band, response-rate, and velocity analytics.
 paths:
   /healthz:
     get:
@@ -401,6 +403,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /analytics:
+    get:
+      operationId: getAnalytics
+      tags: [Analytics]
+      summary: Funnel, score-band, response-rate, and velocity analytics
+      responses:
+        "200":
+          description: Analytics data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
   /today:
     get:
       operationId: getTodayView
@@ -436,6 +456,95 @@ components:
       schema:
         type: string
   schemas:
+    FunnelStage:
+      type: object
+      required: [stage, count, in_flight, conversion_pct]
+      properties:
+        stage:
+          type: string
+        count:
+          type: integer
+        in_flight:
+          type: integer
+        conversion_pct:
+          oneOf:
+            - type: number
+            - type: "null"
+    ScoreBandRow:
+      type: object
+      required: [band, n, in_flight_n, terminal_positive_n, terminal_negative_n]
+      properties:
+        band:
+          type: string
+          enum: [high, mid, low, unscored]
+        n:
+          type: integer
+        in_flight_n:
+          type: integer
+        terminal_positive_n:
+          type: integer
+        terminal_negative_n:
+          type: integer
+    ResponseRateSplit:
+      type: object
+      required: [label, n_applied, n_responded, rate_pct]
+      properties:
+        label:
+          type: string
+        n_applied:
+          type: integer
+        n_responded:
+          type: integer
+        rate_pct:
+          oneOf:
+            - type: number
+            - type: "null"
+    ResponseRates:
+      type: object
+      required: [by_letter_tone, by_resume]
+      properties:
+        by_letter_tone:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResponseRateSplit"
+        by_resume:
+          type: array
+          items:
+            $ref: "#/components/schemas/ResponseRateSplit"
+    VelocityHop:
+      type: object
+      required: [from_stage, to_stage, n, median_days]
+      properties:
+        from_stage:
+          type: string
+        to_stage:
+          type: string
+        n:
+          type: integer
+        median_days:
+          oneOf:
+            - type: number
+            - type: "null"
+    AnalyticsResponse:
+      type: object
+      required: [total_apps, funnel, score_bands, response_rates, velocity]
+      properties:
+        total_apps:
+          type: integer
+        funnel:
+          type: array
+          items:
+            $ref: "#/components/schemas/FunnelStage"
+        score_bands:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScoreBandRow"
+        response_rates:
+          $ref: "#/components/schemas/ResponseRates"
+        velocity:
+          type: array
+          items:
+            $ref: "#/components/schemas/VelocityHop"
     HealthStatus:
       type: object
       properties:

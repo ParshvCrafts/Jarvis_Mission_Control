@@ -6,6 +6,7 @@ import applicationsRouter from "./applications";
 import pendingChangesRouter from "./pending-changes";
 import todayRouter from "./today";
 import queueRouter from "./queue";
+import analyticsRouter from "./analytics";
 import { requireAuth } from "../middlewares/authMiddleware";
 
 const router: IRouter = Router();
@@ -21,5 +22,6 @@ router.use(applicationsRouter);
 router.use(pendingChangesRouter);
 router.use(todayRouter);
 router.use(queueRouter);
+router.use(analyticsRouter);
 
 export default router;

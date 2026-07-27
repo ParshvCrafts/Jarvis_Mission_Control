@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AnalyticsResponse,
   ApplicationDetail,
   ApplicationListResponse,
   AuthUserEnvelope,
@@ -1163,6 +1164,83 @@ export const useSetQueueItemReviewed = <TError = ErrorType<ErrorEnvelope>,
       > => {
       return useMutation(getSetQueueItemReviewedMutationOptions(options));
     }
+
+export const getGetAnalyticsUrl = () => {
+
+
+
+
+  return `/api/analytics`
+}
+
+/**
+ * @summary Funnel, score-band, response-rate, and velocity analytics
+ */
+export const getAnalytics = async ( options?: RequestInit): Promise<AnalyticsResponse> => {
+
+  return customFetch<AnalyticsResponse>(getGetAnalyticsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAnalyticsQueryKey = () => {
+    return [
+    `/api/analytics`
+    ] as const;
+    }
+
+
+export const getGetAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getAnalytics>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnalyticsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnalytics>>> = ({ signal }) => getAnalytics({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getAnalytics>>>
+export type GetAnalyticsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Funnel, score-band, response-rate, and velocity analytics
+ */
+
+export function useGetAnalytics<TData = Awaited<ReturnType<typeof getAnalytics>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAnalyticsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetTodayViewUrl = () => {
 

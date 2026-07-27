@@ -331,6 +331,47 @@ export const SetQueueItemReviewedResponse = zod.object({
 
 
 /**
+ * @summary Funnel, score-band, response-rate, and velocity analytics
+ */
+export const GetAnalyticsResponse = zod.object({
+  "total_apps": zod.number(),
+  "funnel": zod.array(zod.object({
+  "stage": zod.string(),
+  "count": zod.number(),
+  "in_flight": zod.number(),
+  "conversion_pct": zod.union([zod.number(),zod.null()])
+})),
+  "score_bands": zod.array(zod.object({
+  "band": zod.enum(['high', 'mid', 'low', 'unscored']),
+  "n": zod.number(),
+  "in_flight_n": zod.number(),
+  "terminal_positive_n": zod.number(),
+  "terminal_negative_n": zod.number()
+})),
+  "response_rates": zod.object({
+  "by_letter_tone": zod.array(zod.object({
+  "label": zod.string(),
+  "n_applied": zod.number(),
+  "n_responded": zod.number(),
+  "rate_pct": zod.union([zod.number(),zod.null()])
+})),
+  "by_resume": zod.array(zod.object({
+  "label": zod.string(),
+  "n_applied": zod.number(),
+  "n_responded": zod.number(),
+  "rate_pct": zod.union([zod.number(),zod.null()])
+}))
+}),
+  "velocity": zod.array(zod.object({
+  "from_stage": zod.string(),
+  "to_stage": zod.string(),
+  "n": zod.number(),
+  "median_days": zod.union([zod.number(),zod.null()])
+}))
+})
+
+
+/**
  * @summary Today view — follow-ups, suggestions, queue top, blockers, weekly goal, season alert
  */
 export const GetTodayViewResponse = zod.object({

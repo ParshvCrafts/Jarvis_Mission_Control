@@ -5,6 +5,58 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface FunnelStage {
+  stage: string;
+  count: number;
+  in_flight: number;
+  conversion_pct: number | null;
+}
+
+export type ScoreBandRowBand = typeof ScoreBandRowBand[keyof typeof ScoreBandRowBand];
+
+
+export const ScoreBandRowBand = {
+  high: 'high',
+  mid: 'mid',
+  low: 'low',
+  unscored: 'unscored',
+} as const;
+
+export interface ScoreBandRow {
+  band: ScoreBandRowBand;
+  n: number;
+  in_flight_n: number;
+  terminal_positive_n: number;
+  terminal_negative_n: number;
+}
+
+export interface ResponseRateSplit {
+  label: string;
+  n_applied: number;
+  n_responded: number;
+  rate_pct: number | null;
+}
+
+export interface ResponseRates {
+  by_letter_tone: ResponseRateSplit[];
+  by_resume: ResponseRateSplit[];
+}
+
+export interface VelocityHop {
+  from_stage: string;
+  to_stage: string;
+  n: number;
+  median_days: number | null;
+}
+
+export interface AnalyticsResponse {
+  total_apps: number;
+  funnel: FunnelStage[];
+  score_bands: ScoreBandRow[];
+  response_rates: ResponseRates;
+  velocity: VelocityHop[];
+}
+
 export interface HealthStatus {
   status: string;
 }

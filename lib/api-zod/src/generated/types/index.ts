@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './analyticsResponse';
 export * from './applicationDetail';
 export * from './applicationListResponse';
 export * from './applicationRow';
@@ -18,6 +19,7 @@ export * from './createPendingChangeRequestKind';
 export * from './createPendingChangeRequestPayload';
 export * from './errorEnvelope';
 export * from './evalSummaryRow';
+export * from './funnelStage';
 export * from './handleBrowserLoginCallbackParams';
 export * from './healthStatus';
 export * from './listApplicationsParams';
@@ -41,6 +43,10 @@ export * from './pendingChangeState';
 export * from './queueItemEnvelope';
 export * from './queueItemRow';
 export * from './queueListResponse';
+export * from './responseRates';
+export * from './responseRateSplit';
+export * from './scoreBandRow';
+export * from './scoreBandRowBand';
 export * from './seasonAlert';
 export * from './seasonAlertKind';
 export * from './setQueueItemReviewedRequest';
@@ -53,4 +59,5 @@ export * from './todayReplySuggestion';
 export * from './todayResponse';
 export * from './updatePendingChangeStateRequest';
 export * from './updatePendingChangeStateRequestState';
+export * from './velocityHop';
 export * from './weeklyGoal';
