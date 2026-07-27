@@ -261,6 +261,8 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
   // or overwrite them with the CSV's dates.
   const [conflicts, setConflicts] = useState<CsvImportConflict[]>([]);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
+  // True while a bulk "Use all CSV dates" run is in flight; disables all actions.
+  const [bulkResolving, setBulkResolving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const importMut = useImportDeadlinesCsv();
@@ -314,6 +316,37 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
       toast.error(`Failed to update ${c.company}`);
     } finally {
       setResolvingId(null);
+    }
+  }
+
+  async function applyAllCsvDates() {
+    setBulkResolving(true);
+    const targets = [...conflicts];
+    let ok = 0;
+    const failed: CsvImportConflict[] = [];
+    try {
+      for (const c of targets) {
+        try {
+          await updateMut.mutateAsync({
+            id: c.existing_id,
+            data: { opens_date: c.csv_opens_date, closes_date: c.csv_closes_date },
+          });
+          ok++;
+          setConflicts((prev) => prev.filter((x) => x.existing_id !== c.existing_id));
+        } catch {
+          failed.push(c);
+        }
+      }
+      await qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() });
+      if (failed.length === 0) {
+        toast.success(`${ok} deadline${ok !== 1 ? "s" : ""} updated to CSV dates`);
+      } else {
+        toast.error(
+          `${ok} updated, ${failed.length} failed (${failed.map((c) => c.company).join(", ")})`
+        );
+      }
+    } finally {
+      setBulkResolving(false);
     }
   }
 
@@ -373,7 +406,8 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
           </span>
           <button
             onClick={() => setConflicts([])}
-            className="p-0.5 rounded text-blue-500 hover:text-blue-200 hover:bg-blue-900/30 transition-colors"
+            disabled={bulkResolving}
+            className="p-0.5 rounded text-blue-500 hover:text-blue-200 hover:bg-blue-900/30 transition-colors disabled:opacity-50"
             title="Dismiss (keep your edited dates)"
           >
             <X className="h-3.5 w-3.5" />
@@ -382,6 +416,22 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
         <p className="mt-1 text-[11px] text-blue-200/60">
           These rows were not imported. Choose per row: keep your dates, or overwrite them with the CSV's.
         </p>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <button
+            onClick={() => setConflicts([])}
+            disabled={bulkResolving || resolvingId !== null}
+            className="px-2 py-0.5 rounded text-[10px] text-zinc-300 bg-zinc-800/80 hover:bg-zinc-700 transition-colors disabled:opacity-50"
+          >
+            Keep all mine
+          </button>
+          <button
+            onClick={() => applyAllCsvDates()}
+            disabled={bulkResolving || resolvingId !== null}
+            className="px-2 py-0.5 rounded text-[10px] bg-blue-800/70 text-blue-100 hover:bg-blue-700/70 transition-colors disabled:opacity-50"
+          >
+            {bulkResolving ? "Updating all…" : "Use all CSV dates"}
+          </button>
+        </div>
         <ul className="mt-1.5 space-y-1.5 max-h-52 overflow-y-auto">
           {conflicts.map((c) => (
             <li key={c.existing_id} className="flex items-center gap-2 flex-wrap">
@@ -396,14 +446,14 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
               <span className="ml-auto flex items-center gap-1">
                 <button
                   onClick={() => setConflicts((prev) => prev.filter((x) => x.existing_id !== c.existing_id))}
-                  disabled={resolvingId !== null}
+                  disabled={resolvingId !== null || bulkResolving}
                   className="px-1.5 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors disabled:opacity-50"
                 >
                   Keep mine
                 </button>
                 <button
                   onClick={() => applyCsvDates(c)}
-                  disabled={resolvingId !== null}
+                  disabled={resolvingId !== null || bulkResolving}
                   className="px-1.5 py-0.5 rounded text-[10px] bg-blue-900/50 text-blue-200 hover:bg-blue-800/60 transition-colors disabled:opacity-50"
                 >
                   {resolvingId === c.existing_id ? "Updating…" : "Use CSV dates"}
