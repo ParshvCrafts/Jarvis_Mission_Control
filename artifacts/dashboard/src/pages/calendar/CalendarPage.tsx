@@ -28,6 +28,7 @@ import {
   type BandSegment,
 } from "./calendarHelpers";
 import { useTodayIso } from "./useTodayIso";
+import { runOptimisticDelete, UNDO_WINDOW_MS } from "./optimisticDelete";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -463,33 +464,21 @@ export default function CalendarPage() {
   }
 
   async function handleDelete(d: SeasonDeadline) {
-    // Optimistic delete with undo toast
-    const prev = [...deadlines];
-    qc.setQueryData(getListDeadlinesQueryKey(), { deadlines: prev.filter((x) => x.id !== d.id) });
-
-    let undone = false;
-    toast(`Deleted: ${d.company}`, {
-      duration: 5000,
-      action: {
-        label: "Undo",
-        onClick: () => {
-          undone = true;
-          qc.setQueryData(getListDeadlinesQueryKey(), { deadlines: prev });
-          toast.success("Restored");
-        },
-      },
+    // Optimistic delete with undo toast (flow lives in optimisticDelete.ts
+    // so it can be unit-tested).
+    await runOptimisticDelete(d, {
+      prev: [...deadlines],
+      setCache: (items) => qc.setQueryData(getListDeadlinesQueryKey(), { deadlines: items }),
+      showUndoToast: (onUndo) =>
+        toast(`Deleted: ${d.company}`, {
+          duration: UNDO_WINDOW_MS,
+          action: { label: "Undo", onClick: onUndo },
+        }),
+      onRestored: () => toast.success("Restored"),
+      onError: () => toast.error("Failed to delete deadline"),
+      deleteApi: (id) => deleteMut.mutateAsync({ id }),
+      refresh,
     });
-
-    await new Promise((r) => setTimeout(r, 5200));
-    if (undone) return;
-
-    try {
-      await deleteMut.mutateAsync({ id: d.id });
-      await refresh();
-    } catch {
-      qc.setQueryData(getListDeadlinesQueryKey(), { deadlines: prev });
-      toast.error("Failed to delete deadline");
-    }
   }
 
   /** Switch to grid view at the month containing this deadline's window and select it. */
