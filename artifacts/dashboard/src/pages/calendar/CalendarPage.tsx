@@ -598,8 +598,14 @@ export default function CalendarPage() {
     weeks.push({ days, isos, segments, hiddenSegments, laneCount });
   }
 
+  // List view respects the same "show closed" preference: when off, hide
+  // past deadlines (closes_date strictly before today).
+  const listDeadlines = deadlines.filter(
+    (d) => showClosedWindows || !d.closes_date || d.closes_date >= today,
+  );
+
   // Sort deadlines by soonest date
-  const sortedDeadlines = [...deadlines].sort((a, b) => {
+  const sortedDeadlines = [...listDeadlines].sort((a, b) => {
     const aDate = a.closes_date ?? a.opens_date ?? "9999";
     const bDate = b.closes_date ?? b.opens_date ?? "9999";
     return aDate.localeCompare(bDate);
@@ -612,7 +618,15 @@ export default function CalendarPage() {
         <div className="shrink-0">
           <h1 className="text-sm font-semibold text-zinc-100">Season Calendar</h1>
           <p className="text-[11px] text-zinc-600 mt-0.5 font-mono">
-            {isLoading ? "—" : `${deadlines.length} deadline${deadlines.length !== 1 ? "s" : ""}`}
+            {isLoading
+              ? "—"
+              : viewMode === "list"
+              ? `${sortedDeadlines.length} deadline${sortedDeadlines.length !== 1 ? "s" : ""}${
+                  sortedDeadlines.length !== deadlines.length
+                    ? ` (${deadlines.length - sortedDeadlines.length} closed hidden)`
+                    : ""
+                }`
+              : `${deadlines.length} deadline${deadlines.length !== 1 ? "s" : ""}`}
           </p>
         </div>
 
@@ -672,10 +686,30 @@ export default function CalendarPage() {
 
         {data && viewMode === "list" && (
           <div className="overflow-y-auto h-full px-5 py-3">
+            <div className="flex justify-end mb-1">
+              <label className="text-[10px] text-zinc-600 flex items-center gap-1.5 cursor-pointer select-none hover:text-zinc-400 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={showClosedWindows}
+                  onChange={toggleShowClosedWindows}
+                  className="h-3 w-3 accent-blue-600 cursor-pointer"
+                />
+                Show closed windows
+              </label>
+            </div>
             {sortedDeadlines.length === 0 ? (
               <div className="text-center py-16">
-                <p className="text-sm text-zinc-700">No deadlines yet.</p>
-                <p className="text-xs text-zinc-800 mt-1">Add one manually or import from CSV.</p>
+                {deadlines.length > 0 ? (
+                  <>
+                    <p className="text-sm text-zinc-700">All deadlines are closed.</p>
+                    <p className="text-xs text-zinc-800 mt-1">Enable "Show closed windows" to see them.</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-zinc-700">No deadlines yet.</p>
+                    <p className="text-xs text-zinc-800 mt-1">Add one manually or import from CSV.</p>
+                  </>
+                )}
               </div>
             ) : (
               sortedDeadlines.map((d) =>
