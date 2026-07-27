@@ -556,7 +556,12 @@ export default function CalendarPage() {
     const totalLanes = allSegments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
     const overflowing = totalLanes > MAX_VISIBLE_LANES;
     const segments = overflowing ? allSegments.filter((s) => s.lane < MAX_VISIBLE_LANES) : allSegments;
-    const hiddenSegments = overflowing ? allSegments.filter((s) => s.lane >= MAX_VISIBLE_LANES) : [];
+    // Most urgent first: soonest-closing hidden windows lead the "+N more" list.
+    const hiddenSegments = overflowing
+      ? allSegments
+          .filter((s) => s.lane >= MAX_VISIBLE_LANES)
+          .sort((a, b) => (a.d.closes_date ?? "9999").localeCompare(b.d.closes_date ?? "9999"))
+      : [];
     // Reserve one extra lane row for the "+N more" indicator when overflowing
     const laneCount = overflowing ? MAX_VISIBLE_LANES + 1 : totalLanes;
     weeks.push({ days, isos, segments, hiddenSegments, laneCount });
@@ -820,7 +825,10 @@ export default function CalendarPage() {
                             }}
                             className="w-full text-left text-xs bg-zinc-900 hover:bg-zinc-800 transition-colors rounded p-2"
                           >
-                            <p className="font-medium text-zinc-200">{seg.d.company}</p>
+                            <div className="flex items-center gap-1.5">
+                              <span className={cn("h-2 w-2 rounded-sm shrink-0 ring-1 ring-inset", bandColorClass(closesDays))} />
+                              <p className="font-medium text-zinc-200">{seg.d.company}</p>
+                            </div>
                             {seg.d.program && <p className="text-zinc-500 text-[11px]">{seg.d.program}</p>}
                             <div className="mt-1 space-y-0.5 font-mono">
                               <p className="text-[10px]">
