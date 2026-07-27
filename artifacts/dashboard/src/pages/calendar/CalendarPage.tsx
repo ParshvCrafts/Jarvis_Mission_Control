@@ -252,6 +252,9 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
   const [dragging, setDragging] = useState(false);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // Per-row skip reasons from the last import; shown in a dismissible panel
+  // (not just a toast count) so bad rows aren't silently lost.
+  const [skipped, setSkipped] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const importMut = useImportDeadlinesCsv();
@@ -260,11 +263,17 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
   async function process(text: string) {
     setStatus("loading");
     setErrorMsg("");
+    setSkipped([]);
     try {
       const res = await importMut.mutateAsync({ data: { csv: text } });
       await qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() });
       setStatus("done");
-      toast.success(`Imported ${res.inserted} deadline${res.inserted !== 1 ? "s" : ""}${res.errors.length > 0 ? ` (${res.errors.length} skipped)` : ""}`);
+      setSkipped(res.errors);
+      if (res.errors.length > 0) {
+        toast.warning(`Imported ${res.inserted} deadline${res.inserted !== 1 ? "s" : ""} — ${res.errors.length} row${res.errors.length !== 1 ? "s" : ""} skipped (see details below)`);
+      } else {
+        toast.success(`Imported ${res.inserted} deadline${res.inserted !== 1 ? "s" : ""}`);
+      }
       onImport();
       setTimeout(() => setStatus("idle"), 3000);
     } catch (e) {
@@ -281,6 +290,7 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
   }
 
   return (
+    <div className="space-y-2">
     <div
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
@@ -317,6 +327,32 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
       ) : (
         <><Upload className="h-3.5 w-3.5" /><span>Drop CSV or click to import</span><span className="text-zinc-700">· company,program,opens_date,closes_date,url,notes</span></>
       )}
+    </div>
+
+    {skipped.length > 0 && (
+      <div className="rounded border border-amber-900/60 bg-amber-950/20 px-3 py-2 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-amber-400 font-medium">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {skipped.length} row{skipped.length !== 1 ? "s" : ""} skipped during import
+          </span>
+          <button
+            onClick={() => setSkipped([])}
+            className="p-0.5 rounded text-amber-600 hover:text-amber-300 hover:bg-amber-900/30 transition-colors"
+            title="Dismiss"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <ul className="mt-1.5 space-y-0.5 max-h-40 overflow-y-auto">
+          {skipped.map((msg, i) => (
+            <li key={i} className="text-[11px] font-mono text-amber-200/80">
+              {msg}
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
     </div>
   );
 }
