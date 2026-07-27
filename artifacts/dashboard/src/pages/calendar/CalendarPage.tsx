@@ -31,6 +31,7 @@ import {
 } from "./calendarHelpers";
 import { useTodayIso } from "./useTodayIso";
 import { runOptimisticDelete, UNDO_WINDOW_MS } from "./optimisticDelete";
+import { runBulkApplyCsvDates } from "./bulkApplyCsvDates";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -321,30 +322,46 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
 
   async function applyAllCsvDates() {
     setBulkResolving(true);
-    const targets = [...conflicts];
-    let ok = 0;
-    const failed: CsvImportConflict[] = [];
     try {
-      for (const c of targets) {
-        try {
-          await updateMut.mutateAsync({
-            id: c.existing_id,
-            data: { opens_date: c.csv_opens_date, closes_date: c.csv_closes_date },
+      // Bulk apply with undo (flow lives in bulkApplyCsvDates.ts so it can be
+      // unit-tested). Undo writes each row's previous dates back server-side.
+      await runBulkApplyCsvDates([...conflicts], {
+        applyApi: (id, dates) => updateMut.mutateAsync({ id, data: dates }),
+        onRowApplied: (row) =>
+          setConflicts((prev) => prev.filter((x) => x.existing_id !== row.existing_id)),
+        onRowRestored: (row) =>
+          setConflicts((prev) =>
+            prev.some((x) => x.existing_id === row.existing_id) ? prev : [...prev, row]
+          ),
+        refresh: () => qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() }),
+        showResultToast: (ok, failed, onUndo) => {
+          if (onUndo === null) {
+            toast.error(
+              `Failed to update ${failed.map((c) => c.company).join(", ")}`
+            );
+            return;
+          }
+          const msg =
+            failed.length === 0
+              ? `${ok} deadline${ok !== 1 ? "s" : ""} updated to CSV dates`
+              : `${ok} updated, ${failed.length} failed (${failed.map((c) => c.company).join(", ")})`;
+          toast(msg, {
+            duration: UNDO_WINDOW_MS,
+            action: { label: "Undo", onClick: onUndo },
           });
-          ok++;
-          setConflicts((prev) => prev.filter((x) => x.existing_id !== c.existing_id));
-        } catch {
-          failed.push(c);
-        }
-      }
-      await qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() });
-      if (failed.length === 0) {
-        toast.success(`${ok} deadline${ok !== 1 ? "s" : ""} updated to CSV dates`);
-      } else {
-        toast.error(
-          `${ok} updated, ${failed.length} failed (${failed.map((c) => c.company).join(", ")})`
-        );
-      }
+        },
+        onUndone: (restored, failedRestores) => {
+          if (failedRestores.length === 0) {
+            toast.success(
+              `Restored previous dates on ${restored} deadline${restored !== 1 ? "s" : ""}`
+            );
+          } else {
+            toast.error(
+              `Restored ${restored}, but ${failedRestores.length} failed (${failedRestores.map((c) => c.company).join(", ")})`
+            );
+          }
+        },
+      });
     } finally {
       setBulkResolving(false);
     }
