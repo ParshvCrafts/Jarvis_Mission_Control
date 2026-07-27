@@ -500,7 +500,21 @@ export default function CalendarPage() {
         }),
       onRestored: () => toast.success("Restored"),
       onError: () => toast.error("Failed to delete deadline"),
+      onRestoreError: () => toast.error("Could not restore the deadline — it was already deleted"),
       deleteApi: (id) => deleteMut.mutateAsync({ id }),
+      // If Undo lands after the delete committed, re-create the deadline
+      // server-side so it survives the next refetch.
+      recreateApi: (item) =>
+        createMut.mutateAsync({
+          data: {
+            company: item.company,
+            program: item.program || undefined,
+            opens_date: item.opens_date ?? null,
+            closes_date: item.closes_date ?? null,
+            url: item.url || undefined,
+            notes: item.notes || undefined,
+          },
+        }),
       refresh,
     });
   }

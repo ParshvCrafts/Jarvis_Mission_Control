@@ -24,7 +24,9 @@ function makeHarness(overrides: Partial<Parameters<typeof runOptimisticDelete<It
     }),
     onRestored: vi.fn(),
     onError: vi.fn(),
+    onRestoreError: vi.fn(),
     deleteApi: vi.fn(() => Promise.resolve({})),
+    recreateApi: vi.fn(() => Promise.resolve({})),
     refresh: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
@@ -137,7 +139,9 @@ describe("runOptimisticDelete", () => {
       },
       onRestored: vi.fn(),
       onError: vi.fn(),
+      onRestoreError: vi.fn(),
       deleteApi: vi.fn(() => Promise.resolve({})),
+      recreateApi: vi.fn(() => Promise.resolve({})),
       refresh: vi.fn(() => Promise.resolve()),
     });
 
@@ -176,7 +180,9 @@ describe("runOptimisticDelete", () => {
       showUndoToast: vi.fn(),
       onRestored: vi.fn(),
       onError: vi.fn(),
+      onRestoreError: vi.fn(),
       deleteApi: vi.fn(deleteApi),
+      recreateApi: vi.fn(() => Promise.resolve({})),
       refresh: vi.fn(() => Promise.resolve()),
     });
 
@@ -194,6 +200,83 @@ describe("runOptimisticDelete", () => {
     expect(cache).toEqual([A, C]);
     expect(depsA.onError).toHaveBeenCalledTimes(1);
     expect(depsB.onError).not.toHaveBeenCalled();
+  });
+
+  it("Undo after the delete committed re-creates the item server-side and refreshes", async () => {
+    const h = makeHarness();
+    const p = runOptimisticDelete(B, h.deps);
+
+    // Let the commit fire (delete API called and resolved).
+    await vi.advanceTimersByTimeAsync(COMMIT_DELAY_MS);
+    await p;
+    expect(h.deps.deleteApi).toHaveBeenCalledWith(B.id);
+
+    // Undo arrives late (e.g. hover-paused toast).
+    h.undo();
+    expect(h.getCache()).toEqual([A, B, C]); // immediate cache restore
+    await vi.runAllTimersAsync(); // flush the async recreate chain
+
+    expect(h.deps.recreateApi).toHaveBeenCalledTimes(1);
+    expect(h.deps.recreateApi).toHaveBeenCalledWith(B);
+    expect(h.deps.refresh).toHaveBeenCalledTimes(2); // post-delete + post-recreate
+    expect(h.deps.onRestored).toHaveBeenCalledTimes(1);
+    expect(h.deps.onRestoreError).not.toHaveBeenCalled();
+  });
+
+  it("Undo before the commit never calls the recreate API", async () => {
+    const h = makeHarness();
+    const p = runOptimisticDelete(B, h.deps);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    h.undo();
+    await vi.advanceTimersByTimeAsync(COMMIT_DELAY_MS);
+    await p;
+
+    expect(h.deps.recreateApi).not.toHaveBeenCalled();
+    expect(h.deps.deleteApi).not.toHaveBeenCalled();
+  });
+
+  it("late Undo when the delete FAILED does not recreate (row still exists server-side)", async () => {
+    let resolveDelete: (v: boolean) => void = () => {};
+    const h = makeHarness({
+      deleteApi: vi.fn(
+        () =>
+          new Promise((res, rej) => {
+            resolveDelete = (ok) => (ok ? res({}) : rej(new Error("boom")));
+          }),
+      ),
+    });
+    const p = runOptimisticDelete(B, h.deps);
+
+    // Commit fires; delete API is in flight when Undo arrives.
+    await vi.advanceTimersByTimeAsync(COMMIT_DELAY_MS);
+    h.undo();
+    expect(h.getCache()).toEqual([A, B, C]);
+
+    resolveDelete(false); // delete fails
+    await p;
+    await vi.runAllTimersAsync();
+
+    expect(h.deps.recreateApi).not.toHaveBeenCalled();
+    expect(h.deps.onRestored).toHaveBeenCalledTimes(1);
+    // Undo already handled the restore — no duplicate error rollback.
+    expect(h.deps.onError).not.toHaveBeenCalled();
+    expect(h.getCache()).toEqual([A, B, C]);
+  });
+
+  it("reports onRestoreError when the post-commit recreate fails", async () => {
+    const h = makeHarness({
+      recreateApi: vi.fn(() => Promise.reject(new Error("boom"))),
+    });
+    const p = runOptimisticDelete(B, h.deps);
+
+    await vi.advanceTimersByTimeAsync(COMMIT_DELAY_MS);
+    await p;
+    h.undo();
+    await vi.runAllTimersAsync();
+
+    expect(h.deps.onRestoreError).toHaveBeenCalledTimes(1);
+    expect(h.deps.onRestored).not.toHaveBeenCalled();
   });
 
   it("respects an injected waitMs for the commit delay", async () => {
