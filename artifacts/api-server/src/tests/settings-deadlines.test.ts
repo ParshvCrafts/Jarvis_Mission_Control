@@ -115,6 +115,23 @@ describe("POST /api/deadlines", () => {
     expect(res.body.deadline.id).toBeTypeOf("number");
   });
 
+  it("accepts source 'import' (Undo restore of imported row)", async () => {
+    const res = await agent().post("/api/deadlines").send({
+      company: "RestoredCo",
+      source: "import",
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.deadline.source).toBe("import");
+  });
+
+  it("422 when source is invalid", async () => {
+    const res = await agent().post("/api/deadlines").send({
+      company: "BadSourceCo",
+      source: "csv",
+    });
+    expect(res.status).toBe(422);
+  });
+
   it("422 when company is missing", async () => {
     const res = await agent().post("/api/deadlines").send({ program: "SWE" });
     expect(res.status).toBe(422);

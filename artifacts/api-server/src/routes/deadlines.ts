@@ -53,10 +53,17 @@ router.get("/deadlines", async (_req, res) => {
 // ── POST /deadlines — create manual deadline ───────────────────────────────────
 
 router.post("/deadlines", async (req, res) => {
-  const { company, program, opens_date, closes_date, url, notes } = req.body ?? {};
+  const { company, program, opens_date, closes_date, url, notes, source } = req.body ?? {};
 
   if (!company || typeof company !== "string" || !company.trim()) {
     res.status(422).json({ error: "company is required" });
+    return;
+  }
+
+  // Optional source override — lets the Undo flow restore an imported row
+  // without losing its "import" tag. Defaults to "manual".
+  if (source !== undefined && source !== "manual" && source !== "import") {
+    res.status(422).json({ error: 'source must be "manual" or "import"' });
     return;
   }
 
@@ -79,7 +86,7 @@ router.post("/deadlines", async (req, res) => {
       closesDate: closesDateParsed ?? null,
       url: typeof url === "string" ? url.trim() : "",
       notes: typeof notes === "string" ? notes.trim() : "",
-      source: "manual",
+      source: source ?? "manual",
     })
     .returning();
 

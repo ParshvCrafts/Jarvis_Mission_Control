@@ -464,7 +464,8 @@ export const CreateDeadlineBody = zod.object({
   "opens_date": zod.union([zod.string(),zod.null()]).optional(),
   "closes_date": zod.union([zod.string(),zod.null()]).optional(),
   "url": zod.string().optional(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "source": zod.enum(['manual', 'import']).optional()
 })
 
 export const CreateDeadlineResponse = zod.object({

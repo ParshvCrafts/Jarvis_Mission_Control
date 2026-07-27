@@ -514,6 +514,9 @@ export default function CalendarPage() {
             closes_date: item.closes_date ?? null,
             url: item.url || undefined,
             notes: item.notes || undefined,
+            // Preserve the original source tag (e.g. "import") so the purple
+            // badge survives the restore + refetch.
+            source: item.source,
           },
         });
         // Return the created row so the cache adopts its NEW id immediately.

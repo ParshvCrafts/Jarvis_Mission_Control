@@ -130,6 +130,14 @@ export interface DeadlineEnvelope {
   deadline: SeasonDeadline;
 }
 
+export type CreateSeasonDeadlineRequestSource = typeof CreateSeasonDeadlineRequestSource[keyof typeof CreateSeasonDeadlineRequestSource];
+
+
+export const CreateSeasonDeadlineRequestSource = {
+  manual: 'manual',
+  import: 'import',
+} as const;
+
 export interface CreateSeasonDeadlineRequest {
   /** @minLength 1 */
   company: string;
@@ -138,6 +146,7 @@ export interface CreateSeasonDeadlineRequest {
   closes_date?: string | null;
   url?: string;
   notes?: string;
+  source?: CreateSeasonDeadlineRequestSource;
 }
 
 export interface UpdateSeasonDeadlineRequest {

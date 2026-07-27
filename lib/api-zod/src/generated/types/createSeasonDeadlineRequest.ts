@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateSeasonDeadlineRequestSource } from './createSeasonDeadlineRequestSource';
 
 export interface CreateSeasonDeadlineRequest {
   /** @minLength 1 */
@@ -14,4 +15,5 @@ export interface CreateSeasonDeadlineRequest {
   closes_date?: string | null;
   url?: string;
   notes?: string;
+  source?: CreateSeasonDeadlineRequestSource;
 }

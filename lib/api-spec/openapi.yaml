@@ -885,6 +885,9 @@ components:
           type: string
         notes:
           type: string
+        source:
+          type: string
+          enum: [manual, import]
     UpdateSeasonDeadlineRequest:
       type: object
       properties:
