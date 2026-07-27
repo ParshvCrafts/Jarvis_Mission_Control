@@ -4,6 +4,8 @@ import {
   isoDay,
   isWindowDeadline,
   computeWeekSegments,
+  splitWeekLanes,
+  type BandSegment,
   daysFromNow,
   urgencyClass,
   daysLabel,
@@ -210,6 +212,74 @@ describe("computeWeekSegments", () => {
     // No collision → both fit on lane 0 despite different urgency
     expect(laneOf.get(urgent.id)).toBe(0);
     expect(laneOf.get(laterButFree.id)).toBe(0);
+  });
+});
+
+// ─── splitWeekLanes ───────────────────────────────────────────────────────────
+
+describe("splitWeekLanes", () => {
+  /** Build a full-width segment on a given lane with a given closes date. */
+  function seg(lane: number, closes: string | null, opens = "2026-07-05"): BandSegment {
+    return {
+      d: { id: nextId++, opens_date: opens, closes_date: closes },
+      startCol: 0,
+      endCol: 6,
+      lane,
+      startsHere: true,
+      endsHere: true,
+    };
+  }
+
+  it("returns everything visible with no overflow when lanes fit the cap", () => {
+    const segs = [seg(0, "2026-07-10"), seg(1, "2026-07-12")];
+    const res = splitWeekLanes(segs, 4);
+    expect(res.segments).toEqual(segs);
+    expect(res.hiddenSegments).toEqual([]);
+    expect(res.laneCount).toBe(2);
+  });
+
+  it("handles an empty week", () => {
+    const res = splitWeekLanes([], 4);
+    expect(res.segments).toEqual([]);
+    expect(res.hiddenSegments).toEqual([]);
+    expect(res.laneCount).toBe(0);
+  });
+
+  it("returns no overflow when lanes exactly hit the cap", () => {
+    const segs = [seg(0, "2026-07-10"), seg(1, "2026-07-11"), seg(2, "2026-07-12"), seg(3, "2026-07-13")];
+    const res = splitWeekLanes(segs, 4);
+    expect(res.hiddenSegments).toEqual([]);
+    expect(res.laneCount).toBe(4);
+  });
+
+  it("splits overflow lanes and reserves an extra lane row for the indicator", () => {
+    const segs = [seg(0, "2026-07-08"), seg(1, "2026-07-10"), seg(2, "2026-07-12"), seg(3, "2026-07-14"), seg(4, "2026-07-20"), seg(5, "2026-07-25")];
+    const res = splitWeekLanes(segs, 4);
+    expect(res.segments.map((s) => s.lane)).toEqual([0, 1, 2, 3]);
+    expect(res.hiddenSegments).toHaveLength(2);
+    expect(res.laneCount).toBe(5); // 4 visible + "+N more" row
+  });
+
+  it("sorts overflow by closes_date ascending", () => {
+    const late = seg(4, "2026-08-20");
+    const soon = seg(5, "2026-07-09");
+    const mid = seg(6, "2026-07-30");
+    const res = splitWeekLanes([seg(0, "2026-07-08"), seg(1, "2026-07-08"), seg(2, "2026-07-08"), seg(3, "2026-07-08"), late, soon, mid], 4);
+    expect(res.hiddenSegments.map((s) => s.d.id)).toEqual([soon.d.id, mid.d.id, late.d.id]);
+  });
+
+  it("sorts null closes_date last in the overflow list", () => {
+    const noClose = seg(4, null);
+    const dated = seg(5, "2026-07-09");
+    const res = splitWeekLanes([seg(0, "2026-07-08"), seg(1, "2026-07-08"), seg(2, "2026-07-08"), seg(3, "2026-07-08"), noClose, dated], 4);
+    expect(res.hiddenSegments.map((s) => s.d.id)).toEqual([dated.d.id, noClose.d.id]);
+  });
+
+  it("does not mutate the input segment array", () => {
+    const segs = [seg(5, "2026-07-09"), seg(4, "2026-08-01"), seg(0, "2026-07-08"), seg(1, "2026-07-08"), seg(2, "2026-07-08"), seg(3, "2026-07-08")];
+    const copy = [...segs];
+    splitWeekLanes(segs, 4);
+    expect(segs).toEqual(copy);
   });
 });
 

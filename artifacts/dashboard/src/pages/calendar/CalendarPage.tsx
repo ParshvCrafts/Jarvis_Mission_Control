@@ -19,6 +19,7 @@ import {
   isoDay,
   isWindowDeadline,
   computeWeekSegments,
+  splitWeekLanes,
   daysFromNow as daysFromNowPure,
   urgencyClass,
   daysLabel,
@@ -556,17 +557,7 @@ export default function CalendarPage() {
     const days = grid.slice(w * 7, w * 7 + 7);
     const isos = days.map((d) => (d ? isoDay(year, month, d) : null));
     const allSegments = computeWeekSegments(isos, windowDeadlines);
-    const totalLanes = allSegments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
-    const overflowing = totalLanes > MAX_VISIBLE_LANES;
-    const segments = overflowing ? allSegments.filter((s) => s.lane < MAX_VISIBLE_LANES) : allSegments;
-    // Most urgent first: soonest-closing hidden windows lead the "+N more" list.
-    const hiddenSegments = overflowing
-      ? allSegments
-          .filter((s) => s.lane >= MAX_VISIBLE_LANES)
-          .sort((a, b) => (a.d.closes_date ?? "9999").localeCompare(b.d.closes_date ?? "9999"))
-      : [];
-    // Reserve one extra lane row for the "+N more" indicator when overflowing
-    const laneCount = overflowing ? MAX_VISIBLE_LANES + 1 : totalLanes;
+    const { segments, hiddenSegments, laneCount } = splitWeekLanes(allSegments, MAX_VISIBLE_LANES);
     weeks.push({ days, isos, segments, hiddenSegments, laneCount });
   }
 

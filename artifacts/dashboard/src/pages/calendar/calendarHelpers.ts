@@ -70,6 +70,37 @@ export function bandColorClass(closesDays: number | null): string {
   return "bg-emerald-900/60 text-emerald-300 ring-emerald-700/60 hover:bg-emerald-900/80";
 }
 
+export interface WeekLaneSplit<D extends WindowDeadlineLike = WindowDeadlineLike> {
+  /** Segments rendered as visible bands (lanes below the cap). */
+  segments: BandSegment<D>[];
+  /** Overflow segments hidden behind "+N more", sorted by soonest close (null closes last). */
+  hiddenSegments: BandSegment<D>[];
+  /** Lane rows to reserve, including one extra for the "+N more" indicator when overflowing. */
+  laneCount: number;
+}
+
+/**
+ * Split a week's segments into visible lanes and hidden overflow given a lane
+ * cap. Hidden segments are sorted by closes_date ascending, with missing
+ * closes_date sorted last. When overflowing, laneCount reserves one extra row
+ * for the "+N more" indicator.
+ */
+export function splitWeekLanes<D extends WindowDeadlineLike>(
+  allSegments: BandSegment<D>[],
+  maxVisibleLanes: number,
+): WeekLaneSplit<D> {
+  const totalLanes = allSegments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
+  const overflowing = totalLanes > maxVisibleLanes;
+  if (!overflowing) {
+    return { segments: allSegments, hiddenSegments: [], laneCount: totalLanes };
+  }
+  const segments = allSegments.filter((s) => s.lane < maxVisibleLanes);
+  const hiddenSegments = allSegments
+    .filter((s) => s.lane >= maxVisibleLanes)
+    .sort((a, b) => (a.d.closes_date ?? "9999").localeCompare(b.d.closes_date ?? "9999"));
+  return { segments, hiddenSegments, laneCount: maxVisibleLanes + 1 };
+}
+
 export interface BandSegment<D extends WindowDeadlineLike = WindowDeadlineLike> {
   d: D;
   startCol: number;
