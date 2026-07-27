@@ -161,6 +161,7 @@ function computeWeekSegments(weekIsos: (string | null)[], windowDeadlines: Seaso
 
 const BAND_TOP = 24; // px below the day number
 const LANE_HEIGHT = 16; // px per band lane
+const MAX_VISIBLE_LANES = 4; // cap stacked bands per week; the rest go to "+N more"
 
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
@@ -479,6 +480,7 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(todayMonth);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedDeadlineId, setSelectedDeadlineId] = useState<number | null>(null);
+  const [overflowWeek, setOverflowWeek] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -580,6 +582,7 @@ export default function CalendarPage() {
     const [y, m] = target.split("-");
     setYear(parseInt(y!));
     setMonth(parseInt(m!) - 1);
+    setOverflowWeek(null);
     if (isWindowDeadline(d)) {
       // Windows render as bands — select the band so the detail panel opens
       setSelectedDay(null);
@@ -601,12 +604,14 @@ export default function CalendarPage() {
     else setMonth((m) => m - 1);
     setSelectedDay(null);
     setSelectedDeadlineId(null);
+    setOverflowWeek(null);
   }
   function nextMonth() {
     if (month === 11) { setYear((y) => y + 1); setMonth(0); }
     else setMonth((m) => m + 1);
     setSelectedDay(null);
     setSelectedDeadlineId(null);
+    setOverflowWeek(null);
   }
 
   const selectedDayDeadlines = selectedDay
@@ -621,15 +626,27 @@ export default function CalendarPage() {
     ? deadlines.find((d) => d.id === selectedDeadlineId) ?? null
     : null;
 
-  // Split the month grid into week rows and precompute window bands per week
+  // Split the month grid into week rows and precompute window bands per week.
+  // Lanes are capped: overflow segments are hidden behind a "+N more" indicator.
   const windowDeadlines = deadlines.filter(isWindowDeadline);
-  const weeks: { days: (number | null)[]; isos: (string | null)[]; segments: BandSegment[]; laneCount: number }[] = [];
+  const weeks: {
+    days: (number | null)[];
+    isos: (string | null)[];
+    segments: BandSegment[];
+    hiddenSegments: BandSegment[];
+    laneCount: number;
+  }[] = [];
   for (let w = 0; w < grid.length / 7; w++) {
     const days = grid.slice(w * 7, w * 7 + 7);
     const isos = days.map((d) => (d ? isoDay(year, month, d) : null));
-    const segments = computeWeekSegments(isos, windowDeadlines);
-    const laneCount = segments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
-    weeks.push({ days, isos, segments, laneCount });
+    const allSegments = computeWeekSegments(isos, windowDeadlines);
+    const totalLanes = allSegments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
+    const overflowing = totalLanes > MAX_VISIBLE_LANES;
+    const segments = overflowing ? allSegments.filter((s) => s.lane < MAX_VISIBLE_LANES) : allSegments;
+    const hiddenSegments = overflowing ? allSegments.filter((s) => s.lane >= MAX_VISIBLE_LANES) : [];
+    // Reserve one extra lane row for the "+N more" indicator when overflowing
+    const laneCount = overflowing ? MAX_VISIBLE_LANES + 1 : totalLanes;
+    weeks.push({ days, isos, segments, hiddenSegments, laneCount });
   }
 
   // Sort deadlines by soonest date
@@ -784,6 +801,7 @@ export default function CalendarPage() {
                           onClick={() => {
                             if (iso) {
                               setSelectedDeadlineId(null);
+                              setOverflowWeek(null);
                               setSelectedDay(selectedDay === iso ? null : iso);
                             }
                           }}
@@ -800,6 +818,7 @@ export default function CalendarPage() {
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedDay(null);
+                            setOverflowWeek(null);
                             setSelectedDeadlineId(selectedDeadlineId === seg.d.id ? null : seg.d.id);
                           }}
                           style={{
@@ -820,6 +839,30 @@ export default function CalendarPage() {
                         </button>
                       );
                     })}
+                    {week.hiddenSegments.length > 0 && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedDay(null);
+                          setSelectedDeadlineId(null);
+                          setOverflowWeek(overflowWeek === w ? null : w);
+                        }}
+                        title={`Show ${week.hiddenSegments.length} more window${week.hiddenSegments.length !== 1 ? "s" : ""}`}
+                        style={{
+                          left: 2,
+                          top: BAND_TOP + MAX_VISIBLE_LANES * LANE_HEIGHT,
+                          height: LANE_HEIGHT - 3,
+                        }}
+                        className={cn(
+                          "absolute z-10 flex items-center px-1.5 rounded text-[9px] font-medium ring-1 ring-inset transition-colors",
+                          overflowWeek === w
+                            ? "bg-blue-950/60 text-blue-300 ring-blue-600"
+                            : "bg-zinc-800/80 text-zinc-400 ring-zinc-700 hover:bg-zinc-700/80 hover:text-zinc-200"
+                        )}
+                      >
+                        +{week.hiddenSegments.length} more
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -843,10 +886,46 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            {/* Detail panel: selected window band or selected day */}
-            {(selectedDeadline || selectedDay) && (
+            {/* Detail panel: selected window band, overflow list, or selected day */}
+            {(selectedDeadline || selectedDay || overflowWeek !== null) && (
               <div className="w-64 shrink-0 border-l border-zinc-800 overflow-y-auto p-4">
-                {selectedDeadline ? (
+                {overflowWeek !== null ? (
+                  <>
+                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">
+                      {weeks[overflowWeek]?.hiddenSegments.length ?? 0} more window{(weeks[overflowWeek]?.hiddenSegments.length ?? 0) !== 1 ? "s" : ""} this week
+                    </p>
+                    <div className="space-y-2">
+                      {(weeks[overflowWeek]?.hiddenSegments ?? []).map((seg) => {
+                        const closesDays = daysFromNow(seg.d.closes_date);
+                        return (
+                          <button
+                            key={seg.d.id}
+                            onClick={() => {
+                              setOverflowWeek(null);
+                              setSelectedDay(null);
+                              setSelectedDeadlineId(seg.d.id);
+                            }}
+                            className="w-full text-left text-xs bg-zinc-900 hover:bg-zinc-800 transition-colors rounded p-2"
+                          >
+                            <p className="font-medium text-zinc-200">{seg.d.company}</p>
+                            {seg.d.program && <p className="text-zinc-500 text-[11px]">{seg.d.program}</p>}
+                            <div className="mt-1 space-y-0.5 font-mono">
+                              <p className="text-[10px]">
+                                <span className="text-zinc-700">opens </span>
+                                <span className="text-emerald-500">{formatDate(seg.d.opens_date)}</span>
+                              </p>
+                              <p className="text-[10px]">
+                                <span className="text-zinc-700">closes </span>
+                                <span className={urgencyClass(closesDays)}>{formatDate(seg.d.closes_date)}</span>
+                                <span className="ml-1 text-zinc-600">{daysLabel(closesDays)}</span>
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : selectedDeadline ? (
                   <>
                     <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Application Window</p>
                     <div className="text-xs bg-zinc-900 rounded p-2">
