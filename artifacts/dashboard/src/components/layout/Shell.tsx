@@ -18,9 +18,9 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+  { label: "Today", href: "/today", icon: Sun, enabled: true },
   { label: "Applications", href: "/applications", icon: Briefcase, enabled: true },
   { label: "Board", href: "/board", icon: LayoutGrid, enabled: false },
-  { label: "Today", href: "/today", icon: Sun, enabled: false },
   { label: "Queue", href: "/queue", icon: ClipboardList, enabled: false },
   { label: "Analytics", href: "/analytics", icon: BarChart3, enabled: false },
   { label: "Calendar", href: "/calendar", icon: CalendarDays, enabled: false },
@@ -84,7 +84,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div className="px-4 pb-3 pt-2 border-t border-zinc-800/60 shrink-0">
-          <p className="text-[10px] text-zinc-700 font-mono">Stage 3 / 8</p>
+          <p className="text-[10px] text-zinc-700 font-mono">Stage 4 / 8</p>
         </div>
       </aside>
 

@@ -272,3 +272,57 @@ export const UpdatePendingChangeStateResponse = zod.object({
 })
 
 
+/**
+ * @summary Today view — follow-ups, suggestions, queue top, blockers, weekly goal, season alert
+ */
+export const GetTodayViewResponse = zod.object({
+  "today_date": zod.string(),
+  "last_sync_at": zod.string().nullable(),
+  "is_stale": zod.boolean(),
+  "followups": zod.array(zod.object({
+  "id": zod.number(),
+  "num": zod.number(),
+  "company": zod.string(),
+  "role": zod.string(),
+  "urgency_label": zod.enum(['urgent', 'overdue', 'needs-data', 'waiting', 'cold']),
+  "next_date": zod.string(),
+  "reason": zod.string()
+})),
+  "reply_suggestions": zod.array(zod.object({
+  "id": zod.number(),
+  "message_date": zod.string(),
+  "subject": zod.string(),
+  "from_addr": zod.string(),
+  "kind": zod.string(),
+  "confidence": zod.string(),
+  "suggested_command": zod.string()
+})),
+  "queue_top": zod.array(zod.object({
+  "id": zod.number(),
+  "company": zod.string(),
+  "title": zod.string(),
+  "score": zod.number(),
+  "posted": zod.string(),
+  "posted_age_days": zod.number()
+})),
+  "blockers": zod.array(zod.object({
+  "num": zod.number(),
+  "company": zod.string(),
+  "status": zod.string(),
+  "blockers": zod.array(zod.string())
+})),
+  "weekly_goal": zod.object({
+  "target": zod.number(),
+  "progress": zod.number(),
+  "week_start": zod.string()
+}),
+  "season_alert": zod.union([zod.object({
+  "id": zod.number(),
+  "company": zod.string(),
+  "program": zod.string(),
+  "kind": zod.enum(['opens', 'closes']),
+  "date": zod.string()
+}),zod.null()]).optional()
+})
+
+

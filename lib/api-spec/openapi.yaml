@@ -16,6 +16,8 @@ tags:
     description: Application pipeline operations.
   - name: PendingChanges
     description: Write-back queue of pending changes for Mac sync.
+  - name: Today
+    description: Today view aggregated data.
 paths:
   /healthz:
     get:
@@ -318,6 +320,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /today:
+    get:
+      operationId: getTodayView
+      tags: [Today]
+      summary: Today view — follow-ups, suggestions, queue top, blockers, weekly goal, season alert
+      responses:
+        "200":
+          description: Today view data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -593,3 +613,128 @@ components:
         state:
           type: string
           enum: [copied, applied, dismissed]
+    # ── Today ─────────────────────────────────────────────────────────────────
+    TodayFollowup:
+      type: object
+      required: [id, num, company, role, urgency_label, next_date, reason]
+      properties:
+        id:
+          type: integer
+        num:
+          type: integer
+        company:
+          type: string
+        role:
+          type: string
+        urgency_label:
+          type: string
+          enum: [urgent, overdue, needs-data, waiting, cold]
+        next_date:
+          type: string
+        reason:
+          type: string
+    TodayReplySuggestion:
+      type: object
+      required: [id, message_date, subject, from_addr, kind, confidence, suggested_command]
+      properties:
+        id:
+          type: integer
+        message_date:
+          type: string
+        subject:
+          type: string
+        from_addr:
+          type: string
+        kind:
+          type: string
+        confidence:
+          type: string
+        suggested_command:
+          type: string
+    TodayQueueItem:
+      type: object
+      required: [id, company, title, score, posted, posted_age_days]
+      properties:
+        id:
+          type: integer
+        company:
+          type: string
+        title:
+          type: string
+        score:
+          type: number
+        posted:
+          type: string
+        posted_age_days:
+          type: integer
+    TodayBlocker:
+      type: object
+      required: [num, company, status, blockers]
+      properties:
+        num:
+          type: integer
+        company:
+          type: string
+        status:
+          type: string
+        blockers:
+          type: array
+          items:
+            type: string
+    WeeklyGoal:
+      type: object
+      required: [target, progress, week_start]
+      properties:
+        target:
+          type: integer
+        progress:
+          type: integer
+        week_start:
+          type: string
+    SeasonAlert:
+      type: object
+      required: [id, company, program, kind, date]
+      properties:
+        id:
+          type: integer
+        company:
+          type: string
+        program:
+          type: string
+        kind:
+          type: string
+          enum: [opens, closes]
+        date:
+          type: string
+    TodayResponse:
+      type: object
+      required: [today_date, last_sync_at, is_stale, followups, reply_suggestions, queue_top, blockers, weekly_goal]
+      properties:
+        today_date:
+          type: string
+        last_sync_at:
+          type: ["string", "null"]
+        is_stale:
+          type: boolean
+        followups:
+          type: array
+          items:
+            $ref: "#/components/schemas/TodayFollowup"
+        reply_suggestions:
+          type: array
+          items:
+            $ref: "#/components/schemas/TodayReplySuggestion"
+        queue_top:
+          type: array
+          items:
+            $ref: "#/components/schemas/TodayQueueItem"
+        blockers:
+          type: array
+          items:
+            $ref: "#/components/schemas/TodayBlocker"
+        weekly_goal:
+          $ref: "#/components/schemas/WeeklyGoal"
+        season_alert:
+          oneOf:
+            - $ref: "#/components/schemas/SeasonAlert"
+            - type: "null"

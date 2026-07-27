@@ -191,6 +191,88 @@ export interface UpdatePendingChangeStateRequest {
   state: UpdatePendingChangeStateRequestState;
 }
 
+export type TodayFollowupUrgencyLabel = typeof TodayFollowupUrgencyLabel[keyof typeof TodayFollowupUrgencyLabel];
+
+
+export const TodayFollowupUrgencyLabel = {
+  urgent: 'urgent',
+  overdue: 'overdue',
+  'needs-data': 'needs-data',
+  waiting: 'waiting',
+  cold: 'cold',
+} as const;
+
+export interface TodayFollowup {
+  id: number;
+  num: number;
+  company: string;
+  role: string;
+  urgency_label: TodayFollowupUrgencyLabel;
+  next_date: string;
+  reason: string;
+}
+
+export interface TodayReplySuggestion {
+  id: number;
+  message_date: string;
+  subject: string;
+  from_addr: string;
+  kind: string;
+  confidence: string;
+  suggested_command: string;
+}
+
+export interface TodayQueueItem {
+  id: number;
+  company: string;
+  title: string;
+  score: number;
+  posted: string;
+  posted_age_days: number;
+}
+
+export interface TodayBlocker {
+  num: number;
+  company: string;
+  status: string;
+  blockers: string[];
+}
+
+export interface WeeklyGoal {
+  target: number;
+  progress: number;
+  week_start: string;
+}
+
+export type SeasonAlertKind = typeof SeasonAlertKind[keyof typeof SeasonAlertKind];
+
+
+export const SeasonAlertKind = {
+  opens: 'opens',
+  closes: 'closes',
+} as const;
+
+export interface SeasonAlert {
+  id: number;
+  company: string;
+  program: string;
+  kind: SeasonAlertKind;
+  date: string;
+}
+
+export interface TodayResponse {
+  today_date: string;
+  /** @nullable */
+  last_sync_at: string | null;
+  is_stale: boolean;
+  followups: TodayFollowup[];
+  reply_suggestions: TodayReplySuggestion[];
+  queue_top: TodayQueueItem[];
+  blockers: TodayBlocker[];
+  weekly_goal: WeeklyGoal;
+  season_alert?: SeasonAlert | null;
+}
+
 /**
  * Bearer <session-token> for mobile clients.
  */

@@ -36,6 +36,7 @@ import type {
   MobileTokenExchangeSuccess,
   PendingChangeEnvelope,
   PendingChangesListResponse,
+  TodayResponse,
   UpdatePendingChangeStateRequest
 } from './api.schemas';
 
@@ -1002,4 +1003,81 @@ export const useUpdatePendingChangeState = <TError = ErrorType<ErrorEnvelope>,
       > => {
       return useMutation(getUpdatePendingChangeStateMutationOptions(options));
     }
+
+export const getGetTodayViewUrl = () => {
+
+
+
+
+  return `/api/today`
+}
+
+/**
+ * @summary Today view — follow-ups, suggestions, queue top, blockers, weekly goal, season alert
+ */
+export const getTodayView = async ( options?: RequestInit): Promise<TodayResponse> => {
+
+  return customFetch<TodayResponse>(getGetTodayViewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTodayViewQueryKey = () => {
+    return [
+    `/api/today`
+    ] as const;
+    }
+
+
+export const getGetTodayViewQueryOptions = <TData = Awaited<ReturnType<typeof getTodayView>>, TError = ErrorType<ErrorEnvelope>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodayView>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTodayViewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTodayView>>> = ({ signal }) => getTodayView({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTodayView>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTodayViewQueryResult = NonNullable<Awaited<ReturnType<typeof getTodayView>>>
+export type GetTodayViewQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary Today view — follow-ups, suggestions, queue top, blockers, weekly goal, season alert
+ */
+
+export function useGetTodayView<TData = Awaited<ReturnType<typeof getTodayView>>, TError = ErrorType<ErrorEnvelope>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTodayView>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTodayViewQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 

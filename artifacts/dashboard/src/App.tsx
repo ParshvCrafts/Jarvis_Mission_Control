@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Shell from "@/components/layout/Shell";
 import { PendingChangesProvider } from "@/contexts/PendingChangesContext";
+import TodayPage from "@/pages/today/TodayPage";
 import ApplicationsPage from "@/pages/applications/ApplicationsPage";
 import NotFound from "@/pages/not-found";
 
@@ -22,8 +23,9 @@ function Router() {
     <Shell>
       <Switch>
         <Route path="/">
-          <Redirect to="/applications" />
+          <Redirect to="/today" />
         </Route>
+        <Route path="/today" component={TodayPage} />
         <Route path="/applications" component={ApplicationsPage} />
         <Route component={NotFound} />
       </Switch>
