@@ -146,6 +146,7 @@ export default function QueuePage() {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<"unreviewed" | "all">("unreviewed");
   const [company, setCompany] = useState("");
+  const [sort, setSort] = useState<"rank" | "score">("score");
   const [page, setPage] = useState(1);
   const [focusedIdx, setFocusedIdx] = useState(0);
 
@@ -157,6 +158,7 @@ export default function QueuePage() {
   const params: ListQueueItemsParams = {
     filter,
     ...(company ? { company } : {}),
+    sort,
     page,
     page_size: PAGE_SIZE,
   };
@@ -191,7 +193,7 @@ export default function QueuePage() {
   useEffect(() => {
     setFocusedIdx(0);
     rowRefs.current = [];
-  }, [filter, company, page]);
+  }, [filter, company, sort, page]);
 
   // Scroll focused row into view
   useEffect(() => {
@@ -269,6 +271,30 @@ export default function QueuePage() {
                 {f}
               </button>
             ))}
+          </div>
+
+          {/* Sort toggle */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-zinc-700">sort</span>
+            <div className="flex rounded overflow-hidden border border-zinc-800 text-[11px]">
+              {(["score", "rank"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setSort(s);
+                    setPage(1);
+                  }}
+                  className={cn(
+                    "px-2.5 py-1 transition-colors font-medium",
+                    sort === s
+                      ? "bg-zinc-800 text-zinc-100"
+                      : "text-zinc-600 hover:text-zinc-300",
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Company search */}

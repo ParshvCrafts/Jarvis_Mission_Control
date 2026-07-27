@@ -525,6 +525,7 @@ export const ListPendingChangesState = {
 export type ListQueueItemsParams = {
 filter?: ListQueueItemsFilter;
 company?: string;
+sort?: ListQueueItemsSort;
 page?: number;
 page_size?: number;
 };
@@ -535,5 +536,13 @@ export type ListQueueItemsFilter = typeof ListQueueItemsFilter[keyof typeof List
 export const ListQueueItemsFilter = {
   unreviewed: 'unreviewed',
   all: 'all',
+} as const;
+
+export type ListQueueItemsSort = typeof ListQueueItemsSort[keyof typeof ListQueueItemsSort];
+
+
+export const ListQueueItemsSort = {
+  rank: 'rank',
+  score: 'score',
 } as const;
 

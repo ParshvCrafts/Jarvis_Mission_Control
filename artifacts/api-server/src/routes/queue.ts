@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { eq, and, ilike, asc, sql } from "drizzle-orm";
+import { eq, and, ilike, asc, sql, desc } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { queueItemsTable } from "@workspace/db/schema";
 import { z } from "zod/v4";
@@ -16,8 +16,13 @@ function postedAgeDays(posted: string): number {
 
 // GET /queue
 router.get("/queue", async (req, res) => {
-  const { filter = "unreviewed", company = "", page = "1", page_size = "50" } =
-    req.query as Record<string, string>;
+  const {
+    filter = "unreviewed",
+    company = "",
+    sort = "score",
+    page = "1",
+    page_size = "50",
+  } = req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page) || 1);
   const pageSize = Math.min(200, Math.max(1, parseInt(page_size) || 50));
@@ -37,7 +42,14 @@ router.get("/queue", async (req, res) => {
       .select()
       .from(queueItemsTable)
       .where(where)
-      .orderBy(asc(queueItemsTable.rank))
+      .orderBy(
+        ...(sort === "rank"
+          ? [asc(queueItemsTable.rank)]
+          : [
+              sql`${queueItemsTable.score} DESC NULLS LAST`,
+              asc(queueItemsTable.rank),
+            ]),
+      )
       .limit(pageSize)
       .offset(offset),
     db

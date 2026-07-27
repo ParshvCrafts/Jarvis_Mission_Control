@@ -276,12 +276,14 @@ export const UpdatePendingChangeStateResponse = zod.object({
  * @summary List discovery queue items with optional filter and pagination
  */
 export const listQueueItemsQueryFilterDefault = `unreviewed`;
+export const listQueueItemsQuerySortDefault = `score`;
 export const listQueueItemsQueryPageDefault = 1;
 export const listQueueItemsQueryPageSizeDefault = 50;
 
 export const ListQueueItemsQueryParams = zod.object({
   "filter": zod.enum(['unreviewed', 'all']).default(listQueueItemsQueryFilterDefault),
   "company": zod.coerce.string().optional(),
+  "sort": zod.enum(['rank', 'score']).default(listQueueItemsQuerySortDefault),
   "page": zod.coerce.number().default(listQueueItemsQueryPageDefault),
   "page_size": zod.coerce.number().default(listQueueItemsQueryPageSizeDefault)
 })

@@ -39,6 +39,7 @@ export * from './listPendingChangesParams';
 export * from './listPendingChangesState';
 export * from './listQueueItemsFilter';
 export * from './listQueueItemsParams';
+export * from './listQueueItemsSort';
 export * from './logoutBrowserSessionParams';
 export * from './logoutSuccess';
 export * from './mobileTokenExchangeRequest';

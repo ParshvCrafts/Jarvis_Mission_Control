@@ -6,10 +6,12 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ListQueueItemsFilter } from './listQueueItemsFilter';
+import type { ListQueueItemsSort } from './listQueueItemsSort';
 
 export type ListQueueItemsParams = {
 filter?: ListQueueItemsFilter;
 company?: string;
+sort?: ListQueueItemsSort;
 page?: number;
 page_size?: number;
 };
