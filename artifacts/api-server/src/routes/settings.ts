@@ -4,6 +4,10 @@ import { db } from "@workspace/db";
 import { settingsTable } from "@workspace/db/schema";
 import { IngestPayloadSchema } from "../lib/ingestSchema";
 import { processIngestPayload } from "../lib/ingestCore";
+import {
+  autoApplyPendingChanges,
+  pruneStalePendingChanges,
+} from "../lib/pendingChanges";
 
 const router = Router();
 
@@ -52,8 +56,8 @@ router.put("/settings", async (req, res) => {
 });
 
 // ── POST /settings/ingest — session-authenticated fallback ingest ───────────────
-// Same validation and DB logic as POST /ingest, but uses session auth instead
-// of bearer token. Auto-apply of pending changes is skipped (fallback path).
+// Same validation, DB logic, and pending-change auto-apply/prune as
+// POST /ingest, but uses session auth instead of bearer token.
 
 router.post("/settings/ingest", async (req, res) => {
   const parsed = IngestPayloadSchema.safeParse(req.body);
@@ -78,6 +82,11 @@ router.post("/settings/ingest", async (req, res) => {
   }
 
   const counts = await processIngestPayload(data, req.body);
+
+  // Auto-apply matching pending changes and prune stale ones, same as the
+  // token-authenticated ingest path.
+  await autoApplyPendingChanges(data);
+  await pruneStalePendingChanges();
 
   res.json({ ok: true, payload_version: data.payload_version, counts });
 });
