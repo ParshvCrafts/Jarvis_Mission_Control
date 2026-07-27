@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from "react";
-import { Upload, Check, AlertCircle, Save } from "lucide-react";
+import { useState, useRef } from "react";
+import { Upload, Check, AlertCircle, Save, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -11,6 +11,45 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTheme, type Theme } from "@/hooks/use-theme";
+
+// ─── Theme Toggle ──────────────────────────────────────────────────────────────
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme();
+
+  const options: { value: Theme; label: string; icon: typeof Sun }[] = [
+    { value: "dark", label: "Dark", icon: Moon },
+    { value: "light", label: "Light", icon: Sun },
+  ];
+
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <p className="text-xs text-zinc-400">Theme</p>
+        <p className="text-[10px] text-zinc-600 mt-0.5">Saved on this device.</p>
+      </div>
+      <div className="flex items-center rounded-md border border-zinc-800 p-0.5 gap-0.5">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            onClick={() => setTheme(opt.value)}
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors",
+              theme === opt.value
+                ? "bg-zinc-800 text-zinc-100"
+                : "text-zinc-500 hover:text-zinc-300",
+            )}
+            aria-pressed={theme === opt.value}
+          >
+            <opt.icon className="h-3 w-3" />
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Ingest Drop Zone ──────────────────────────────────────────────────────────
 
@@ -219,6 +258,14 @@ export default function SettingsPage() {
 
       {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto p-5 space-y-6 max-w-xl">
+        {/* Appearance */}
+        <section>
+          <h2 className="text-xs font-semibold text-zinc-300 mb-3 uppercase tracking-wider">Appearance</h2>
+          <div className="bg-zinc-900/40 border border-zinc-800 rounded-lg p-4">
+            <ThemeToggle />
+          </div>
+        </section>
+
         {/* Weekly goal */}
         <section>
           <h2 className="text-xs font-semibold text-zinc-300 mb-3 uppercase tracking-wider">Weekly Application Goal</h2>

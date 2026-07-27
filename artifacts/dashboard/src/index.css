@@ -147,6 +147,115 @@
   --chart-5: 272 51% 54%;
 }
 
+/*
+ * Light theme — applied when <html> does NOT have class="dark".
+ * The app was built dark-first with hardcoded zinc-* / accent-* utility
+ * classes; Tailwind v4 utilities resolve to var(--color-*), so we remap
+ * those palette variables here (inverted zinc scale, light accent tints)
+ * in addition to the semantic tokens.
+ */
+html:not(.dark) {
+  color-scheme: light;
+
+  --button-outline: rgba(0, 0, 0, 0.1);
+  --badge-outline: rgba(0, 0, 0, 0.05);
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.06);
+
+  /* Semantic tokens */
+  --background: 240 10% 97%;
+  --foreground: 240 10% 10%;
+  --border: 240 5% 87%;
+  --input: 240 5% 87%;
+  --ring: 213 90% 50%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 10%;
+  --card-border: 240 5% 88%;
+
+  --sidebar: 240 10% 96%;
+  --sidebar-foreground: 240 10% 10%;
+  --sidebar-border: 240 5% 86%;
+  --sidebar-primary: 213 90% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 5% 90%;
+  --sidebar-accent-foreground: 240 10% 10%;
+  --sidebar-ring: 213 90% 50%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 10% 10%;
+  --popover-border: 240 5% 86%;
+
+  --primary: 213 90% 45%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 240 5% 91%;
+  --secondary-foreground: 240 10% 10%;
+
+  --muted: 240 5% 91%;
+  --muted-foreground: 240 4% 42%;
+
+  --accent: 240 5% 92%;
+  --accent-foreground: 240 10% 10%;
+
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  /*
+   * Zinc scale, inverted for light backgrounds.
+   * Dark usage → light equivalent:
+   *   950 page bg, 900 cards/hovers, 800 borders & subtle fills,
+   *   700–600 faint text & strong borders, 500–100 text ramp.
+   */
+  --color-zinc-950: #f4f4f6;
+  --color-zinc-900: #ffffff;
+  --color-zinc-800: #e4e4e7;
+  --color-zinc-700: #a6a6af;
+  --color-zinc-600: #7d7d87;
+  --color-zinc-500: #666670;
+  --color-zinc-400: #52525b;
+  --color-zinc-300: #3f3f46;
+  --color-zinc-200: #27272a;
+  --color-zinc-100: #18181b;
+
+  /* Accent hues: dark shades (950/900/800) become light tints,
+     bright text shades (400/300) become dark, readable tones. */
+  --color-blue-950: #eff6ff;
+  --color-blue-900: #dbeafe;
+  --color-blue-800: #93c5fd;
+  --color-blue-400: #2563eb;
+  --color-blue-300: #1d4ed8;
+
+  --color-emerald-950: #ecfdf5;
+  --color-emerald-800: #6ee7b7;
+  --color-emerald-400: #059669;
+  --color-emerald-300: #047857;
+
+  --color-red-950: #fef2f2;
+  --color-red-800: #fca5a5;
+  --color-red-400: #dc2626;
+  --color-red-300: #b91c1c;
+
+  --color-amber-950: #fffbeb;
+  --color-amber-800: #fcd34d;
+  --color-amber-400: #d97706;
+  --color-amber-300: #b45309;
+
+  --color-purple-950: #faf5ff;
+  --color-purple-800: #d8b4fe;
+  --color-purple-400: #9333ea;
+
+  --color-orange-950: #fff7ed;
+  --color-orange-800: #fdba74;
+  --color-orange-400: #ea580c;
+
+  --color-green-300: #15803d;
+  --color-green-200: #166534;
+
+  --color-yellow-400: #ca8a04;
+  --color-teal-400: #0d9488;
+}
+
 /* Reset & base */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -166,7 +275,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling for dark theme */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -180,4 +289,10 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(240 4% 28%);
+}
+html:not(.dark) ::-webkit-scrollbar-thumb {
+  background: hsl(240 4% 80%);
+}
+html:not(.dark) ::-webkit-scrollbar-thumb:hover {
+  background: hsl(240 4% 70%);
 }
