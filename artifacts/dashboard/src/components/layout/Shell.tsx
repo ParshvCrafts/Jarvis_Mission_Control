@@ -6,6 +6,7 @@ import {
   ClipboardList,
   BarChart3,
   CalendarDays,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import PendingTray from "@/components/layout/PendingTray";
@@ -23,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Board", href: "/board", icon: LayoutGrid, enabled: false },
   { label: "Queue", href: "/queue", icon: ClipboardList, enabled: true },
   { label: "Analytics", href: "/analytics", icon: BarChart3, enabled: true },
-  { label: "Calendar", href: "/calendar", icon: CalendarDays, enabled: false },
+  { label: "Calendar", href: "/calendar", icon: CalendarDays, enabled: true },
 ];
 
 function NavLink({ item }: { item: NavItem }) {
@@ -82,9 +83,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           ))}
         </nav>
 
+        {/* Settings */}
+        <div className="px-2 pb-1">
+          <NavLink item={{ label: "Settings", href: "/settings", icon: Settings, enabled: true }} />
+        </div>
+
         {/* Footer */}
         <div className="px-4 pb-3 pt-2 border-t border-zinc-800/60 shrink-0">
-          <p className="text-[10px] text-zinc-700 font-mono">Stage 6 / 8</p>
+          <p className="text-[10px] text-zinc-700 font-mono">Stage 7 / 8</p>
         </div>
       </aside>
 

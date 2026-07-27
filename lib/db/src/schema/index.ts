@@ -6,3 +6,4 @@ export * from "./followup";
 export * from "./pending";
 export * from "./calendar";
 export * from "./ingest";
+export * from "./settings";

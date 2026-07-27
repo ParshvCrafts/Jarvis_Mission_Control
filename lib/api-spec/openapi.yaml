@@ -22,6 +22,10 @@ tags:
     description: Discovery queue triage.
   - name: Analytics
     description: Funnel, score-band, response-rate, and velocity analytics.
+  - name: Calendar
+    description: Season deadline calendar operations.
+  - name: Settings
+    description: App settings (weekly target, fallback ingest upload).
 paths:
   /healthz:
     get:
@@ -439,6 +443,207 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorEnvelope"
+  /deadlines:
+    get:
+      operationId: listDeadlines
+      tags: [Calendar]
+      summary: List all season deadlines
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: List of deadlines
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineListResponse"
+    post:
+      operationId: createDeadline
+      tags: [Calendar]
+      summary: Create a season deadline
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSeasonDeadlineRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineEnvelope"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /deadlines/csv-import:
+    post:
+      operationId: importDeadlinesCsv
+      tags: [Calendar]
+      summary: Bulk import deadlines from CSV
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CsvImportRequest"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsvImportResult"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /deadlines/{id}:
+    patch:
+      operationId: updateDeadline
+      tags: [Calendar]
+      summary: Update a season deadline
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSeasonDeadlineRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadlineEnvelope"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    delete:
+      operationId: deleteDeadline
+      tags: [Calendar]
+      summary: Delete a season deadline
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [Settings]
+      summary: Get application settings
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    put:
+      operationId: updateSettings
+      tags: [Settings]
+      summary: Update application settings
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingsRequest"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /settings/ingest:
+    post:
+      operationId: submitFallbackIngest
+      tags: [Settings]
+      summary: Fallback ingest upload (session auth)
+      parameters:
+        - $ref: "#/components/parameters/AuthorizationSessionHeader"
+        - $ref: "#/components/parameters/SessionCookie"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FallbackIngestPayload"
+      responses:
+        "200":
+          description: Ingest complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestUploadResult"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
 components:
   parameters:
     AuthorizationSessionHeader:
@@ -612,6 +817,137 @@ components:
       properties:
         error:
           type: string
+    # ── Calendar ─────────────────────────────────────────────────────────────
+    SeasonDeadline:
+      type: object
+      required: [id, company, program, url, notes, source]
+      properties:
+        id:
+          type: integer
+        company:
+          type: string
+        program:
+          type: string
+        opens_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        closes_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        url:
+          type: string
+        notes:
+          type: string
+        source:
+          type: string
+          enum: [manual, import]
+    DeadlineListResponse:
+      type: object
+      required: [deadlines]
+      properties:
+        deadlines:
+          type: array
+          items:
+            $ref: "#/components/schemas/SeasonDeadline"
+    DeadlineEnvelope:
+      type: object
+      required: [deadline]
+      properties:
+        deadline:
+          $ref: "#/components/schemas/SeasonDeadline"
+    CreateSeasonDeadlineRequest:
+      type: object
+      required: [company]
+      properties:
+        company:
+          type: string
+          minLength: 1
+        program:
+          type: string
+        opens_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        closes_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        url:
+          type: string
+        notes:
+          type: string
+    UpdateSeasonDeadlineRequest:
+      type: object
+      properties:
+        company:
+          type: string
+          minLength: 1
+        program:
+          type: string
+        opens_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        closes_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        url:
+          type: string
+        notes:
+          type: string
+    CsvImportRequest:
+      type: object
+      required: [csv]
+      properties:
+        csv:
+          type: string
+          description: Raw CSV text. Header row required with at minimum a "company" column.
+    CsvImportResult:
+      type: object
+      required: [inserted, errors]
+      properties:
+        inserted:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+    # ── Settings ─────────────────────────────────────────────────────────────
+    AppSettings:
+      type: object
+      required: [weekly_target]
+      properties:
+        weekly_target:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    UpdateSettingsRequest:
+      type: object
+      required: [weekly_target]
+      properties:
+        weekly_target:
+          type: integer
+          minimum: 1
+          maximum: 1000
+    FallbackIngestPayload:
+      type: object
+      description: Raw ingest payload — same schema as POST /ingest but sent with session auth.
+      additionalProperties: true
+    IngestUploadResult:
+      type: object
+      required: [ok, payload_version, counts]
+      properties:
+        ok:
+          type: boolean
+        payload_version:
+          type: integer
+        counts:
+          type: object
+          additionalProperties:
+            type: integer
     # ── Applications ─────────────────────────────────────────────────────────
     ApplicationRow:
       type: object

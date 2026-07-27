@@ -425,3 +425,181 @@ export const GetTodayViewResponse = zod.object({
 })
 
 
+/**
+ * @summary List all season deadlines
+ */
+export const ListDeadlinesHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+export const ListDeadlinesResponse = zod.object({
+  "deadlines": zod.array(zod.object({
+  "id": zod.number(),
+  "company": zod.string(),
+  "program": zod.string(),
+  "opens_date": zod.union([zod.string(),zod.null()]).optional(),
+  "closes_date": zod.union([zod.string(),zod.null()]).optional(),
+  "url": zod.string(),
+  "notes": zod.string(),
+  "source": zod.enum(['manual', 'import'])
+}))
+})
+
+
+/**
+ * @summary Create a season deadline
+ */
+export const CreateDeadlineHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+
+
+
+export const CreateDeadlineBody = zod.object({
+  "company": zod.string().min(1),
+  "program": zod.string().optional(),
+  "opens_date": zod.union([zod.string(),zod.null()]).optional(),
+  "closes_date": zod.union([zod.string(),zod.null()]).optional(),
+  "url": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+export const CreateDeadlineResponse = zod.object({
+  "deadline": zod.object({
+  "id": zod.number(),
+  "company": zod.string(),
+  "program": zod.string(),
+  "opens_date": zod.union([zod.string(),zod.null()]).optional(),
+  "closes_date": zod.union([zod.string(),zod.null()]).optional(),
+  "url": zod.string(),
+  "notes": zod.string(),
+  "source": zod.enum(['manual', 'import'])
+})
+})
+
+
+/**
+ * @summary Bulk import deadlines from CSV
+ */
+export const ImportDeadlinesCsvHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+export const ImportDeadlinesCsvBody = zod.object({
+  "csv": zod.string().describe('Raw CSV text. Header row required with at minimum a \"company\" column.')
+})
+
+export const ImportDeadlinesCsvResponse = zod.object({
+  "inserted": zod.number(),
+  "errors": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Update a season deadline
+ */
+export const UpdateDeadlineParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateDeadlineHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+
+
+
+export const UpdateDeadlineBody = zod.object({
+  "company": zod.string().min(1).optional(),
+  "program": zod.string().optional(),
+  "opens_date": zod.union([zod.string(),zod.null()]).optional(),
+  "closes_date": zod.union([zod.string(),zod.null()]).optional(),
+  "url": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateDeadlineResponse = zod.object({
+  "deadline": zod.object({
+  "id": zod.number(),
+  "company": zod.string(),
+  "program": zod.string(),
+  "opens_date": zod.union([zod.string(),zod.null()]).optional(),
+  "closes_date": zod.union([zod.string(),zod.null()]).optional(),
+  "url": zod.string(),
+  "notes": zod.string(),
+  "source": zod.enum(['manual', 'import'])
+})
+})
+
+
+/**
+ * @summary Delete a season deadline
+ */
+export const DeleteDeadlineParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteDeadlineHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+export const DeleteDeadlineResponse = zod.void()
+
+
+/**
+ * @summary Get application settings
+ */
+export const GetSettingsHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+export const getSettingsResponseWeeklyTargetMax = 1000;
+
+
+
+export const GetSettingsResponse = zod.object({
+  "weekly_target": zod.number().min(1).max(getSettingsResponseWeeklyTargetMax)
+})
+
+
+/**
+ * @summary Update application settings
+ */
+export const UpdateSettingsHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+export const updateSettingsBodyWeeklyTargetMax = 1000;
+
+
+
+export const UpdateSettingsBody = zod.object({
+  "weekly_target": zod.number().min(1).max(updateSettingsBodyWeeklyTargetMax)
+})
+
+export const updateSettingsResponseWeeklyTargetMax = 1000;
+
+
+
+export const UpdateSettingsResponse = zod.object({
+  "weekly_target": zod.number().min(1).max(updateSettingsResponseWeeklyTargetMax)
+})
+
+
+/**
+ * @summary Fallback ingest upload (session auth)
+ */
+export const SubmitFallbackIngestHeader = zod.object({
+  "Authorization": zod.string().optional().describe('Bearer <session-token> for mobile clients.')
+})
+
+export const SubmitFallbackIngestBody = zod.record(zod.string(), zod.unknown()).describe('Raw ingest payload — same schema as POST \/ingest but sent with session auth.')
+
+export const SubmitFallbackIngestResponse = zod.object({
+  "ok": zod.boolean(),
+  "payload_version": zod.number(),
+  "counts": zod.record(zod.string(), zod.number())
+})
+
+

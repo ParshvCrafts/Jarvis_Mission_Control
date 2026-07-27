@@ -8,6 +8,8 @@ import TodayPage from "@/pages/today/TodayPage";
 import ApplicationsPage from "@/pages/applications/ApplicationsPage";
 import QueuePage from "@/pages/queue/QueuePage";
 import AnalyticsPage from "@/pages/analytics/AnalyticsPage";
+import CalendarPage from "@/pages/calendar/CalendarPage";
+import SettingsPage from "@/pages/settings/SettingsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -31,6 +33,8 @@ function Router() {
         <Route path="/applications" component={ApplicationsPage} />
         <Route path="/queue" component={QueuePage} />
         <Route path="/analytics" component={AnalyticsPage} />
+        <Route path="/calendar" component={CalendarPage} />
+        <Route path="/settings" component={SettingsPage} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

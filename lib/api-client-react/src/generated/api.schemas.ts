@@ -103,6 +103,92 @@ export interface ErrorEnvelope {
   error: string;
 }
 
+export type SeasonDeadlineSource = typeof SeasonDeadlineSource[keyof typeof SeasonDeadlineSource];
+
+
+export const SeasonDeadlineSource = {
+  manual: 'manual',
+  import: 'import',
+} as const;
+
+export interface SeasonDeadline {
+  id: number;
+  company: string;
+  program: string;
+  opens_date?: string | null;
+  closes_date?: string | null;
+  url: string;
+  notes: string;
+  source: SeasonDeadlineSource;
+}
+
+export interface DeadlineListResponse {
+  deadlines: SeasonDeadline[];
+}
+
+export interface DeadlineEnvelope {
+  deadline: SeasonDeadline;
+}
+
+export interface CreateSeasonDeadlineRequest {
+  /** @minLength 1 */
+  company: string;
+  program?: string;
+  opens_date?: string | null;
+  closes_date?: string | null;
+  url?: string;
+  notes?: string;
+}
+
+export interface UpdateSeasonDeadlineRequest {
+  /** @minLength 1 */
+  company?: string;
+  program?: string;
+  opens_date?: string | null;
+  closes_date?: string | null;
+  url?: string;
+  notes?: string;
+}
+
+export interface CsvImportRequest {
+  /** Raw CSV text. Header row required with at minimum a "company" column. */
+  csv: string;
+}
+
+export interface CsvImportResult {
+  inserted: number;
+  errors: string[];
+}
+
+export interface AppSettings {
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  weekly_target: number;
+}
+
+export interface UpdateSettingsRequest {
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  weekly_target: number;
+}
+
+/**
+ * Raw ingest payload — same schema as POST /ingest but sent with session auth.
+ */
+export interface FallbackIngestPayload { [key: string]: unknown }
+
+export type IngestUploadResultCounts = {[key: string]: number};
+
+export interface IngestUploadResult {
+  ok: boolean;
+  payload_version: number;
+  counts: IngestUploadResultCounts;
+}
+
 export interface ApplicationRow {
   num: number;
   date: string;

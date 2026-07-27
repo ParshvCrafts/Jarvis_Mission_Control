@@ -21,14 +21,22 @@ import type {
 
 import type {
   AnalyticsResponse,
+  AppSettings,
   ApplicationDetail,
   ApplicationListResponse,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
   CreatePendingChangeRequest,
+  CreateSeasonDeadlineRequest,
+  CsvImportRequest,
+  CsvImportResult,
+  DeadlineEnvelope,
+  DeadlineListResponse,
   ErrorEnvelope,
+  FallbackIngestPayload,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
+  IngestUploadResult,
   ListApplicationsParams,
   ListPendingChangesParams,
   ListQueueItemsParams,
@@ -42,7 +50,9 @@ import type {
   QueueListResponse,
   SetQueueItemReviewedRequest,
   TodayResponse,
-  UpdatePendingChangeStateRequest
+  UpdatePendingChangeStateRequest,
+  UpdateSeasonDeadlineRequest,
+  UpdateSettingsRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -1318,4 +1328,585 @@ export function useGetTodayView<TData = Awaited<ReturnType<typeof getTodayView>>
 
 
 
+
+export const getListDeadlinesUrl = () => {
+
+
+
+
+  return `/api/deadlines`
+}
+
+/**
+ * @summary List all season deadlines
+ */
+export const listDeadlines = async ( options?: RequestInit): Promise<DeadlineListResponse> => {
+
+  return customFetch<DeadlineListResponse>(getListDeadlinesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListDeadlinesQueryKey = () => {
+    return [
+    `/api/deadlines`
+    ] as const;
+    }
+
+
+export const getListDeadlinesQueryOptions = <TData = Awaited<ReturnType<typeof listDeadlines>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeadlines>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListDeadlinesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listDeadlines>>> = ({ signal }) => listDeadlines({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listDeadlines>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListDeadlinesQueryResult = NonNullable<Awaited<ReturnType<typeof listDeadlines>>>
+export type ListDeadlinesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all season deadlines
+ */
+
+export function useListDeadlines<TData = Awaited<ReturnType<typeof listDeadlines>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listDeadlines>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListDeadlinesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateDeadlineUrl = () => {
+
+
+
+
+  return `/api/deadlines`
+}
+
+/**
+ * @summary Create a season deadline
+ */
+export const createDeadline = async (createSeasonDeadlineRequest: CreateSeasonDeadlineRequest, options?: RequestInit): Promise<DeadlineEnvelope> => {
+
+  return customFetch<DeadlineEnvelope>(getCreateDeadlineUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createSeasonDeadlineRequest)
+  }
+);}
+
+
+
+
+
+export const getCreateDeadlineMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDeadline>>, TError,{data: BodyType<CreateSeasonDeadlineRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDeadline>>, TError,{data: BodyType<CreateSeasonDeadlineRequest>}, TContext> => {
+
+const mutationKey = ['createDeadline'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDeadline>>, {data: BodyType<CreateSeasonDeadlineRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createDeadline(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDeadlineMutationResult = NonNullable<Awaited<ReturnType<typeof createDeadline>>>
+    export type CreateDeadlineMutationBody = BodyType<CreateSeasonDeadlineRequest>
+    export type CreateDeadlineMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a season deadline
+ */
+export const useCreateDeadline = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDeadline>>, TError,{data: BodyType<CreateSeasonDeadlineRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDeadline>>,
+        TError,
+        {data: BodyType<CreateSeasonDeadlineRequest>},
+        TContext
+      > => {
+      return useMutation(getCreateDeadlineMutationOptions(options));
+    }
+
+export const getImportDeadlinesCsvUrl = () => {
+
+
+
+
+  return `/api/deadlines/csv-import`
+}
+
+/**
+ * @summary Bulk import deadlines from CSV
+ */
+export const importDeadlinesCsv = async (csvImportRequest: CsvImportRequest, options?: RequestInit): Promise<CsvImportResult> => {
+
+  return customFetch<CsvImportResult>(getImportDeadlinesCsvUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(csvImportRequest)
+  }
+);}
+
+
+
+
+
+export const getImportDeadlinesCsvMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importDeadlinesCsv>>, TError,{data: BodyType<CsvImportRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importDeadlinesCsv>>, TError,{data: BodyType<CsvImportRequest>}, TContext> => {
+
+const mutationKey = ['importDeadlinesCsv'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importDeadlinesCsv>>, {data: BodyType<CsvImportRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importDeadlinesCsv(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportDeadlinesCsvMutationResult = NonNullable<Awaited<ReturnType<typeof importDeadlinesCsv>>>
+    export type ImportDeadlinesCsvMutationBody = BodyType<CsvImportRequest>
+    export type ImportDeadlinesCsvMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Bulk import deadlines from CSV
+ */
+export const useImportDeadlinesCsv = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importDeadlinesCsv>>, TError,{data: BodyType<CsvImportRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importDeadlinesCsv>>,
+        TError,
+        {data: BodyType<CsvImportRequest>},
+        TContext
+      > => {
+      return useMutation(getImportDeadlinesCsvMutationOptions(options));
+    }
+
+export const getUpdateDeadlineUrl = (id: number,) => {
+
+
+
+
+  return `/api/deadlines/${id}`
+}
+
+/**
+ * @summary Update a season deadline
+ */
+export const updateDeadline = async (id: number,
+    updateSeasonDeadlineRequest: UpdateSeasonDeadlineRequest, options?: RequestInit): Promise<DeadlineEnvelope> => {
+
+  return customFetch<DeadlineEnvelope>(getUpdateDeadlineUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateSeasonDeadlineRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateDeadlineMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeadline>>, TError,{id: number;data: BodyType<UpdateSeasonDeadlineRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateDeadline>>, TError,{id: number;data: BodyType<UpdateSeasonDeadlineRequest>}, TContext> => {
+
+const mutationKey = ['updateDeadline'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateDeadline>>, {id: number;data: BodyType<UpdateSeasonDeadlineRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateDeadline(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateDeadlineMutationResult = NonNullable<Awaited<ReturnType<typeof updateDeadline>>>
+    export type UpdateDeadlineMutationBody = BodyType<UpdateSeasonDeadlineRequest>
+    export type UpdateDeadlineMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update a season deadline
+ */
+export const useUpdateDeadline = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateDeadline>>, TError,{id: number;data: BodyType<UpdateSeasonDeadlineRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateDeadline>>,
+        TError,
+        {id: number;data: BodyType<UpdateSeasonDeadlineRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateDeadlineMutationOptions(options));
+    }
+
+export const getDeleteDeadlineUrl = (id: number,) => {
+
+
+
+
+  return `/api/deadlines/${id}`
+}
+
+/**
+ * @summary Delete a season deadline
+ */
+export const deleteDeadline = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteDeadlineUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteDeadlineMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDeadline>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDeadline>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteDeadline'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDeadline>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDeadline(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDeadlineMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDeadline>>>
+
+    export type DeleteDeadlineMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Delete a season deadline
+ */
+export const useDeleteDeadline = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDeadline>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDeadline>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteDeadlineMutationOptions(options));
+    }
+
+export const getGetSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Get application settings
+ */
+export const getSettings = async ( options?: RequestInit): Promise<AppSettings> => {
+
+  return customFetch<AppSettings>(getGetSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSettingsQueryKey = () => {
+    return [
+    `/api/settings`
+    ] as const;
+    }
+
+
+export const getGetSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettings>>> = ({ signal }) => getSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getSettings>>>
+export type GetSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get application settings
+ */
+
+export function useGetSettings<TData = Awaited<ReturnType<typeof getSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateSettingsUrl = () => {
+
+
+
+
+  return `/api/settings`
+}
+
+/**
+ * @summary Update application settings
+ */
+export const updateSettings = async (updateSettingsRequest: UpdateSettingsRequest, options?: RequestInit): Promise<AppSettings> => {
+
+  return customFetch<AppSettings>(getUpdateSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateSettingsRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateSettingsMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSettings>>, TError,{data: BodyType<UpdateSettingsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateSettings>>, TError,{data: BodyType<UpdateSettingsRequest>}, TContext> => {
+
+const mutationKey = ['updateSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateSettings>>, {data: BodyType<UpdateSettingsRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateSettings>>>
+    export type UpdateSettingsMutationBody = BodyType<UpdateSettingsRequest>
+    export type UpdateSettingsMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update application settings
+ */
+export const useUpdateSettings = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateSettings>>, TError,{data: BodyType<UpdateSettingsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateSettings>>,
+        TError,
+        {data: BodyType<UpdateSettingsRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateSettingsMutationOptions(options));
+    }
+
+export const getSubmitFallbackIngestUrl = () => {
+
+
+
+
+  return `/api/settings/ingest`
+}
+
+/**
+ * @summary Fallback ingest upload (session auth)
+ */
+export const submitFallbackIngest = async (fallbackIngestPayload: FallbackIngestPayload, options?: RequestInit): Promise<IngestUploadResult> => {
+
+  return customFetch<IngestUploadResult>(getSubmitFallbackIngestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(fallbackIngestPayload)
+  }
+);}
+
+
+
+
+
+export const getSubmitFallbackIngestMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitFallbackIngest>>, TError,{data: BodyType<FallbackIngestPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitFallbackIngest>>, TError,{data: BodyType<FallbackIngestPayload>}, TContext> => {
+
+const mutationKey = ['submitFallbackIngest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitFallbackIngest>>, {data: BodyType<FallbackIngestPayload>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitFallbackIngest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitFallbackIngestMutationResult = NonNullable<Awaited<ReturnType<typeof submitFallbackIngest>>>
+    export type SubmitFallbackIngestMutationBody = BodyType<FallbackIngestPayload>
+    export type SubmitFallbackIngestMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Fallback ingest upload (session auth)
+ */
+export const useSubmitFallbackIngest = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitFallbackIngest>>, TError,{data: BodyType<FallbackIngestPayload>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitFallbackIngest>>,
+        TError,
+        {data: BodyType<FallbackIngestPayload>},
+        TContext
+      > => {
+      return useMutation(getSubmitFallbackIngestMutationOptions(options));
+    }
 

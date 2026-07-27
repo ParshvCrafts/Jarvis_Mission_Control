@@ -11,7 +11,9 @@ import {
   statusEventsTable,
   seasonDeadlinesTable,
   ingestSnapshotsTable,
+  settingsTable,
 } from "@workspace/db";
+import { WEEKLY_TARGET_KEY, DEFAULT_WEEKLY_TARGET } from "./settings";
 
 const router = Router();
 
@@ -85,6 +87,7 @@ router.get("/today", async (_req, res) => {
     weeklyAppliedRaw,
     lastSyncRaw,
     seasonRaw,
+    settingsRaw,
   ] = await Promise.all([
     // 1. All follow-up items
     db.select().from(followupItemsTable),
@@ -161,6 +164,13 @@ router.get("/today", async (_req, res) => {
         ) ASC`,
       )
       .limit(5),
+
+    // 8. Weekly target from settings table
+    db
+      .select()
+      .from(settingsTable)
+      .where(eq(settingsTable.key, WEEKLY_TARGET_KEY))
+      .limit(1),
   ]);
 
   // ── Process follow-ups ───────────────────────────────────────────────────
@@ -213,8 +223,12 @@ router.get("/today", async (_req, res) => {
     : true;
 
   // ── Weekly goal ──────────────────────────────────────────────────────────
+  const rawTarget = settingsRaw[0]?.value;
+  const weeklyTarget = rawTarget
+    ? Math.max(1, Math.min(1000, parseInt(rawTarget, 10) || DEFAULT_WEEKLY_TARGET))
+    : DEFAULT_WEEKLY_TARGET;
   const weeklyGoal = {
-    target: 10, // default; settings UI is Stage 7
+    target: weeklyTarget,
     progress: weeklyAppliedRaw[0]?.count ?? 0,
     week_start: weekStart,
   };

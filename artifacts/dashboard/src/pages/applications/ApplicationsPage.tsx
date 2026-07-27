@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   useListApplications,
   useGetApplicationDetail,
@@ -29,7 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronUp, ChevronDown, ChevronsUpDown, List, LayoutGrid } from "lucide-react";
+import { ChevronUp, ChevronDown, ChevronsUpDown, List, LayoutGrid, Download } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { usePendingChanges } from "@/contexts/PendingChangesContext";
@@ -402,8 +402,52 @@ function ApplicationDrawer({ detail }: { detail: ApplicationDetail }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
+// ─── CSV export ───────────────────────────────────────────────────────────────
+
+const CSV_COLS: Array<{ label: string; key: keyof ApplicationRow | "resume_present" | "letter_present" }> = [
+  { label: "num", key: "num" },
+  { label: "date", key: "date" },
+  { label: "company", key: "company" },
+  { label: "role", key: "role" },
+  { label: "score", key: "score" },
+  { label: "status", key: "status" },
+  { label: "days_in_stage", key: "days_in_stage" },
+  { label: "contact", key: "contact" },
+  { label: "via", key: "via" },
+  { label: "resume", key: "resume" },
+  { label: "letter", key: "letter" },
+  { label: "resume_present", key: "resume_present" },
+  { label: "letter_present", key: "letter_present" },
+  { label: "notes", key: "notes" },
+];
+
+function escapeCell(v: unknown): string {
+  const s = v == null ? "" : String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function rowsToCsv(rows: ApplicationRow[]): string {
+  const header = CSV_COLS.map((c) => c.label).join(",");
+  const body = rows.map((r) =>
+    CSV_COLS.map((c) => escapeCell(r[c.key as keyof ApplicationRow])).join(",")
+  );
+  return [header, ...body].join("\n");
+}
+
+function downloadCsv(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ApplicationsPage() {
   const [view, setView] = useState<"table" | "board">("table");
+  const [exporting, setExporting] = useState(false);
 
   // Table filter/sort/page state
   const [statusFilter, setStatusFilter] = useState("");
@@ -416,6 +460,55 @@ export default function ApplicationsPage() {
   const [selectedNum, setSelectedNum] = useState<number | null>(null);
 
   const { getActiveChange } = usePendingChanges();
+
+  // CSV export — paginates through ALL matching items (backend caps page_size at 200)
+  const handleExportCsv = useCallback(async () => {
+    setExporting(true);
+    try {
+      const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const PAGE_SIZE = 200;
+      const baseParams = {
+        sort_col: sortCol,
+        sort_dir: sortDir,
+        page_size: String(PAGE_SIZE),
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(scoreBandFilter ? { score_band: scoreBandFilter } : {}),
+        ...(debouncedCompany ? { company: debouncedCompany } : {}),
+      };
+
+      // Fetch first page to learn total
+      const firstParams = new URLSearchParams({ ...baseParams, page: "1" });
+      const firstResp = await fetch(`${BASE}/api/applications?${firstParams}`);
+      if (!firstResp.ok) throw new Error("fetch failed");
+      const firstPage = await firstResp.json() as { items: ApplicationRow[]; total: number };
+
+      const allRows: ApplicationRow[] = [...firstPage.items];
+      const total = firstPage.total;
+      const totalPages = Math.ceil(total / PAGE_SIZE);
+
+      // Fetch remaining pages in sequence
+      for (let p = 2; p <= totalPages; p++) {
+        const params = new URLSearchParams({ ...baseParams, page: String(p) });
+        const resp = await fetch(`${BASE}/api/applications?${params}`);
+        if (!resp.ok) throw new Error(`fetch failed on page ${p}`);
+        const pageData = await resp.json() as { items: ApplicationRow[] };
+        allRows.push(...pageData.items);
+      }
+
+      if (allRows.length !== total) {
+        toast.warning(`Export collected ${allRows.length} of ${total} rows — some pages may have failed`);
+      }
+
+      const csv = rowsToCsv(allRows);
+      const date = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+      downloadCsv(csv, `applications-${date}.csv`);
+      toast.success(`Exported ${allRows.length} rows`);
+    } catch {
+      toast.error("Export failed");
+    } finally {
+      setExporting(false);
+    }
+  }, [sortCol, sortDir, statusFilter, scoreBandFilter, debouncedCompany]);
 
   // Debounce company
   useEffect(() => {
@@ -493,6 +586,21 @@ export default function ApplicationsPage() {
             <LayoutGrid className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        {/* CSV export */}
+        {view === "table" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs border-zinc-700 shrink-0 ml-1"
+            onClick={handleExportCsv}
+            disabled={exporting}
+            title="Download filtered view as CSV"
+          >
+            <Download className="h-3 w-3 mr-1" />
+            {exporting ? "…" : "CSV"}
+          </Button>
+        )}
 
         {/* Table filters (hidden in board) */}
         {view === "table" && (

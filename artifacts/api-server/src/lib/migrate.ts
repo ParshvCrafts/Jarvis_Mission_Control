@@ -176,6 +176,14 @@ export async function runMigrations(): Promise<void> {
       );
     `);
 
+    // App settings — key-value store (weekly_target, etc.)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL DEFAULT ''
+      );
+    `);
+
     logger.info("Database migrations complete");
   } finally {
     client.release();
