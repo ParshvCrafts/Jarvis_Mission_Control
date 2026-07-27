@@ -66,19 +66,25 @@ export function computeWeekSegments<D extends WindowDeadlineLike>(
       endsHere: weekIsos.includes(d.closes_date!),
     });
   }
-  // Stable order: earlier opens first, then longer windows
+  // Urgency order: soonest-closing windows first so they get the lowest lanes
+  // (visible ones when the week overflows). Ties break by opens date, then id.
   raw.sort((a, b) =>
-    (a.d.opens_date! + a.d.closes_date!).localeCompare(b.d.opens_date! + b.d.closes_date!) || a.d.id - b.d.id
+    a.d.closes_date!.localeCompare(b.d.closes_date!) ||
+    a.d.opens_date!.localeCompare(b.d.opens_date!) ||
+    a.d.id - b.d.id
   );
-  const laneEnds: number[] = []; // per lane, last occupied column
+  // First-fit lane assignment with full interval-overlap checks (segments are
+  // no longer sorted by start column, so a simple "last end" per lane is not enough).
+  const lanes: { startCol: number; endCol: number }[][] = [];
   return raw.map((seg) => {
-    let lane = laneEnds.findIndex((end) => end < seg.startCol);
+    let lane = lanes.findIndex((ivs) =>
+      ivs.every((iv) => iv.endCol < seg.startCol || iv.startCol > seg.endCol)
+    );
     if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(seg.endCol);
-    } else {
-      laneEnds[lane] = seg.endCol;
+      lane = lanes.length;
+      lanes.push([]);
     }
+    lanes[lane]!.push({ startCol: seg.startCol, endCol: seg.endCol });
     return { ...seg, lane };
   });
 }

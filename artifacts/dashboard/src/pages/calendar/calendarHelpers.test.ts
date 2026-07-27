@@ -159,12 +159,52 @@ describe("computeWeekSegments", () => {
     expect(segs[0]).toMatchObject({ startCol: 4, endCol: 5, startsHere: true, endsHere: false });
   });
 
-  it("orders segments by opens date then window end, breaking ties by id", () => {
+  it("orders segments by closes date (urgency), breaking ties by opens date then id", () => {
     const weeks = monthWeeks(2026, 6);
     const later = win("2026-07-08", "2026-07-09");
     const earlier = win("2026-07-05", "2026-07-09");
     const segs = computeWeekSegments(weeks[1]!, [later, earlier]);
+    // Same closes date → earlier opens first
     expect(segs[0]!.d.id).toBe(earlier.id);
     expect(segs[1]!.d.id).toBe(later.id);
+  });
+
+  it("gives soonest-closing windows the lowest lanes so they stay visible on overflow", () => {
+    const weeks = monthWeeks(2026, 6);
+    // Five overlapping windows spanning all of week 1; urgency = closes date.
+    const farOff = win("2026-07-05", "2026-08-20");
+    const soon = win("2026-07-05", "2026-07-09");
+    const mid1 = win("2026-07-05", "2026-07-20");
+    const mid2 = win("2026-07-05", "2026-07-25");
+    const soonest = win("2026-07-05", "2026-07-07");
+    const segs = computeWeekSegments(weeks[1]!, [farOff, soon, mid1, mid2, soonest]);
+    const laneOf = new Map(segs.map((s) => [s.d.id, s.lane]));
+    expect(laneOf.get(soonest.id)).toBe(0);
+    expect(laneOf.get(soon.id)).toBe(1);
+    expect(laneOf.get(mid1.id)).toBe(2);
+    expect(laneOf.get(mid2.id)).toBe(3);
+    // Least urgent gets the highest lane → hidden behind "+N more" with a 4-lane cap
+    expect(laneOf.get(farOff.id)).toBe(4);
+    // No overlapping segments share a lane
+    const byLane = new Map<number, { startCol: number; endCol: number }[]>();
+    for (const s of segs) {
+      const arr = byLane.get(s.lane) ?? [];
+      for (const iv of arr) {
+        expect(s.endCol < iv.startCol || s.startCol > iv.endCol).toBe(true);
+      }
+      arr.push(s);
+      byLane.set(s.lane, arr);
+    }
+  });
+
+  it("reuses lower lanes for less urgent windows when they don't collide", () => {
+    const weeks = monthWeeks(2026, 6);
+    const urgent = win("2026-07-05", "2026-07-06"); // cols 0–1
+    const laterButFree = win("2026-07-09", "2026-08-15"); // cols 4–6, far-off close
+    const segs = computeWeekSegments(weeks[1]!, [laterButFree, urgent]);
+    const laneOf = new Map(segs.map((s) => [s.d.id, s.lane]));
+    // No collision → both fit on lane 0 despite different urgency
+    expect(laneOf.get(urgent.id)).toBe(0);
+    expect(laneOf.get(laterButFree.id)).toBe(0);
   });
 });
