@@ -26,6 +26,7 @@ import {
   todayIso,
   type BandSegment,
 } from "./calendarHelpers";
+import { useTodayIso } from "./useTodayIso";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -384,7 +385,9 @@ function GridCell({
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CalendarPage() {
-  const today = todayIso();
+  // Reactive "today": re-renders the page when the LA date rolls over so
+  // urgency colors and "in Xd"/"today" labels stay accurate past midnight.
+  const today = useTodayIso();
   const todayYear = parseInt(today.split("-")[0]!);
   const todayMonth = parseInt(today.split("-")[1]!) - 1;
 
