@@ -130,21 +130,14 @@ export function isWindowDeadline(d: WindowDeadlineLike): boolean {
 }
 
 /**
- * True when `d` is a window deadline that already closed (closes_date strictly
- * before `today`). Used by the "Show closed windows" toggle to hide expired
- * windows from every calendar-grid surface (bands, overflow, detail panels).
+ * Visibility under the "Show closed windows" preference, shared by the list
+ * view and every month-grid surface (bands, per-day markers, "+N more"
+ * overflow, detail panels). When the preference is off, any deadline whose
+ * closes_date is strictly before `today` is hidden — windows and single-date
+ * deadlines alike. Deadlines without a closes_date are always shown; closing
+ * today is still visible.
  */
-export function isClosedWindow(d: WindowDeadlineLike, today: string): boolean {
-  return isWindowDeadline(d) && d.closes_date! < today;
-}
-
-/**
- * List-view visibility for the "Show closed windows" preference. Unlike the
- * grid (which only hides closed *windows*), the list hides any deadline whose
- * closes_date is strictly before `today` when the preference is off. Deadlines
- * without a closes_date are always shown; closing today is still visible.
- */
-export function isVisibleInList(
+export function isDeadlineVisible(
   d: WindowDeadlineLike,
   today: string,
   showClosedWindows: boolean,

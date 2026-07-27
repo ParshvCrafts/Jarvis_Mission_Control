@@ -18,8 +18,7 @@ import {
   buildMonthGrid,
   isoDay,
   isWindowDeadline,
-  isClosedWindow,
-  isVisibleInList,
+  isDeadlineVisible,
   computeWeekSegments,
   splitWeekLanes,
   daysFromNow as daysFromNowPure,
@@ -565,10 +564,11 @@ export default function CalendarPage() {
     setOverflowWeek(null);
   }
 
-  // When the toggle is off, closed windows are hidden from every grid surface:
-  // bands, "+N more" overflow, day detail panel, and band detail panel.
+  // When the toggle is off, past deadlines (closes_date before today) are
+  // hidden from every surface — list rows, grid bands, per-day markers,
+  // "+N more" overflow, and detail panels — using the same rule everywhere.
   const isHiddenClosed = (d: SeasonDeadline) =>
-    !showClosedWindows && isClosedWindow(d, today);
+    !isDeadlineVisible(d, today, showClosedWindows);
 
   const selectedDayDeadlines = selectedDay
     ? deadlines.filter(
@@ -605,15 +605,12 @@ export default function CalendarPage() {
     weeks.push({ days, isos, segments, hiddenSegments, laneCount });
   }
 
-  // List view respects the same "show closed" preference: when off, hide
-  // past deadlines (closes_date strictly before today). Predicate lives in
-  // calendarHelpers.ts so it can be unit-tested.
-  const listDeadlines = deadlines.filter((d) =>
-    isVisibleInList(d, today, showClosedWindows),
-  );
+  // Deadlines visible under the "show closed" preference — shared by the
+  // list rows and the grid's per-day markers so both surfaces agree.
+  const visibleDeadlines = deadlines.filter((d) => !isHiddenClosed(d));
 
   // Sort deadlines by soonest date
-  const sortedDeadlines = [...listDeadlines].sort((a, b) => {
+  const sortedDeadlines = [...visibleDeadlines].sort((a, b) => {
     const aDate = a.closes_date ?? a.opens_date ?? "9999";
     const bDate = b.closes_date ?? b.opens_date ?? "9999";
     return aDate.localeCompare(bDate);
@@ -628,13 +625,11 @@ export default function CalendarPage() {
           <p className="text-[11px] text-zinc-600 mt-0.5 font-mono">
             {isLoading
               ? "—"
-              : viewMode === "list"
-              ? `${sortedDeadlines.length} deadline${sortedDeadlines.length !== 1 ? "s" : ""}${
-                  sortedDeadlines.length !== deadlines.length
-                    ? ` (${deadlines.length - sortedDeadlines.length} closed hidden)`
+              : `${visibleDeadlines.length} deadline${visibleDeadlines.length !== 1 ? "s" : ""}${
+                  visibleDeadlines.length !== deadlines.length
+                    ? ` (${deadlines.length - visibleDeadlines.length} closed hidden)`
                     : ""
-                }`
-              : `${deadlines.length} deadline${deadlines.length !== 1 ? "s" : ""}`}
+                }`}
           </p>
         </div>
 
@@ -785,7 +780,7 @@ export default function CalendarPage() {
                           key={i}
                           day={day}
                           iso={iso}
-                          deadlines={deadlines}
+                          deadlines={visibleDeadlines}
                           isToday={iso === today}
                           selected={iso === selectedDay}
                           laneCount={week.laneCount}
