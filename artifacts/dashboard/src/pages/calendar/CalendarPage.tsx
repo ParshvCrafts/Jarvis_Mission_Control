@@ -504,8 +504,8 @@ export default function CalendarPage() {
       deleteApi: (id) => deleteMut.mutateAsync({ id }),
       // If Undo lands after the delete committed, re-create the deadline
       // server-side so it survives the next refetch.
-      recreateApi: (item) =>
-        createMut.mutateAsync({
+      recreateApi: async (item) => {
+        const res = await createMut.mutateAsync({
           data: {
             company: item.company,
             program: item.program || undefined,
@@ -514,7 +514,10 @@ export default function CalendarPage() {
             url: item.url || undefined,
             notes: item.notes || undefined,
           },
-        }),
+        });
+        // Return the created row so the cache adopts its NEW id immediately.
+        return res.deadline;
+      },
       refresh,
     });
   }

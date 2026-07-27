@@ -30,8 +30,13 @@ export interface OptimisticDeleteDeps<T extends { id: number }> {
   onRestoreError: () => void;
   /** Perform the actual delete API call. */
   deleteApi: (id: number) => Promise<unknown>;
-  /** Re-create the item server-side (used when Undo arrives after the delete committed). */
-  recreateApi: (item: T) => Promise<unknown>;
+  /**
+   * Re-create the item server-side (used when Undo arrives after the delete
+   * committed). Must resolve with the newly created row so the cached copy
+   * can adopt its new id — Edit/Delete would otherwise target the old id and
+   * 404 until the next refetch.
+   */
+  recreateApi: (item: T) => Promise<T>;
   /** Refetch/invalidate after a successful delete or a durable restore. */
   refresh: () => Promise<void>;
   /** Delay before committing; injectable for tests. */
@@ -102,7 +107,11 @@ export async function runOptimisticDelete<T extends { id: number }>(
         return;
       }
       try {
-        await recreateApi(d);
+        const created = await recreateApi(d);
+        // The server assigned the restored row a NEW id. Swap the cached copy
+        // for the created row immediately so Edit/Delete work before the
+        // refetch lands (the old id no longer exists server-side).
+        setCache(getCache().map((x) => (x.id === d.id ? created : x)));
         await refresh();
         onRestored();
       } catch {

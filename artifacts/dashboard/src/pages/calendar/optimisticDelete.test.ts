@@ -26,7 +26,8 @@ function makeHarness(overrides: Partial<Parameters<typeof runOptimisticDelete<It
     onError: vi.fn(),
     onRestoreError: vi.fn(),
     deleteApi: vi.fn(() => Promise.resolve({})),
-    recreateApi: vi.fn(() => Promise.resolve({})),
+    // Server assigns a NEW id on recreate.
+    recreateApi: vi.fn((item: Item) => Promise.resolve({ ...item, id: item.id + 100 })),
     refresh: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
@@ -141,7 +142,7 @@ describe("runOptimisticDelete", () => {
       onError: vi.fn(),
       onRestoreError: vi.fn(),
       deleteApi: vi.fn(() => Promise.resolve({})),
-      recreateApi: vi.fn(() => Promise.resolve({})),
+      recreateApi: vi.fn((item: Item) => Promise.resolve({ ...item, id: item.id + 100 })),
       refresh: vi.fn(() => Promise.resolve()),
     });
 
@@ -182,7 +183,7 @@ describe("runOptimisticDelete", () => {
       onError: vi.fn(),
       onRestoreError: vi.fn(),
       deleteApi: vi.fn(deleteApi),
-      recreateApi: vi.fn(() => Promise.resolve({})),
+      recreateApi: vi.fn((item: Item) => Promise.resolve({ ...item, id: item.id + 100 })),
       refresh: vi.fn(() => Promise.resolve()),
     });
 
@@ -221,6 +222,23 @@ describe("runOptimisticDelete", () => {
     expect(h.deps.refresh).toHaveBeenCalledTimes(2); // post-delete + post-recreate
     expect(h.deps.onRestored).toHaveBeenCalledTimes(1);
     expect(h.deps.onRestoreError).not.toHaveBeenCalled();
+  });
+
+  it("post-commit Undo swaps the cached item's id to the newly created row's id", async () => {
+    const h = makeHarness();
+    const p = runOptimisticDelete(B, h.deps);
+
+    await vi.advanceTimersByTimeAsync(COMMIT_DELAY_MS);
+    await p;
+
+    h.undo();
+    // Immediately after Undo the cache still holds the old copy…
+    expect(h.getCache()).toEqual([A, B, C]);
+    await vi.runAllTimersAsync();
+
+    // …but once the recreate resolves, the cached copy adopts the new id
+    // (before any refetch), so Edit/Delete target the row that exists.
+    expect(h.getCache()).toEqual([A, { ...B, id: B.id + 100 }, C]);
   });
 
   it("Undo before the commit never calls the recreate API", async () => {
