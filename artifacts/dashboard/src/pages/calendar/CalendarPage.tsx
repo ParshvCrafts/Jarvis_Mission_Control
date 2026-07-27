@@ -468,6 +468,9 @@ export default function CalendarPage() {
     // so it can be unit-tested).
     await runOptimisticDelete(d, {
       prev: [...deadlines],
+      getCache: () =>
+        (qc.getQueryData(getListDeadlinesQueryKey()) as { deadlines: SeasonDeadline[] } | undefined)
+          ?.deadlines ?? [],
       setCache: (items) => qc.setQueryData(getListDeadlinesQueryKey(), { deadlines: items }),
       showUndoToast: (onUndo) =>
         toast(`Deleted: ${d.company}`, {

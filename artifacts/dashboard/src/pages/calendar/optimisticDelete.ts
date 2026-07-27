@@ -11,6 +11,8 @@ export const COMMIT_DELAY_MS = UNDO_WINDOW_MS + 200;
 export interface OptimisticDeleteDeps<T extends { id: number }> {
   /** Snapshot of the current list (taken before removal). */
   prev: T[];
+  /** Read the current deadlines list from the query cache. */
+  getCache: () => T[];
   /** Write the deadlines list into the query cache. */
   setCache: (items: T[]) => void;
   /** Show the "Deleted: X" toast with an Undo action. */
@@ -31,16 +33,32 @@ export async function runOptimisticDelete<T extends { id: number }>(
   d: T,
   deps: OptimisticDeleteDeps<T>,
 ): Promise<void> {
-  const { prev, setCache, showUndoToast, onRestored, onError, deleteApi, refresh } = deps;
+  const { prev, getCache, setCache, showUndoToast, onRestored, onError, deleteApi, refresh } = deps;
   const waitMs = deps.waitMs ?? COMMIT_DELAY_MS;
 
+  // Index the item held in the snapshot so a restore can put it back where it
+  // was, without clobbering other concurrent deletes.
+  const originalIndex = prev.findIndex((x) => x.id === d.id);
+
+  // Re-insert ONLY this item into the *current* cache (not the whole `prev`
+  // snapshot). Restoring the snapshot would resurrect other items that were
+  // optimistically deleted after this one.
+  const restoreItem = () => {
+    const current = getCache();
+    if (current.some((x) => x.id === d.id)) return; // already present
+    const next = [...current];
+    const idx = originalIndex < 0 ? next.length : Math.min(originalIndex, next.length);
+    next.splice(idx, 0, d);
+    setCache(next);
+  };
+
   // Optimistically remove the item.
-  setCache(prev.filter((x) => x.id !== d.id));
+  setCache(getCache().filter((x) => x.id !== d.id));
 
   let undone = false;
   showUndoToast(() => {
     undone = true;
-    setCache(prev);
+    restoreItem();
     onRestored();
   });
 
@@ -51,7 +69,7 @@ export async function runOptimisticDelete<T extends { id: number }>(
     await deleteApi(d.id);
     await refresh();
   } catch {
-    setCache(prev);
+    restoreItem();
     onError();
   }
 }
