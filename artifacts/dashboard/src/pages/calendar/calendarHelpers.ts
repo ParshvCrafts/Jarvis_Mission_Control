@@ -80,14 +80,24 @@ export interface WeekLaneSplit<D extends WindowDeadlineLike = WindowDeadlineLike
 }
 
 /**
+ * 1 when the window is already closed (closes_date before `today`), else 0.
+ * Past windows always sort after upcoming ones so they don't crowd out
+ * genuinely urgent deadlines. Without a `today` reference, nothing is "past".
+ */
+function pastRank(closes: string | null | undefined, today: string | undefined): number {
+  return today && closes && closes < today ? 1 : 0;
+}
+
+/**
  * Split a week's segments into visible lanes and hidden overflow given a lane
- * cap. Hidden segments are sorted by closes_date ascending, with missing
- * closes_date sorted last. When overflowing, laneCount reserves one extra row
- * for the "+N more" indicator.
+ * cap. Hidden segments are sorted upcoming-before-past (relative to `today`),
+ * then by closes_date ascending, with missing closes_date sorted last. When
+ * overflowing, laneCount reserves one extra row for the "+N more" indicator.
  */
 export function splitWeekLanes<D extends WindowDeadlineLike>(
   allSegments: BandSegment<D>[],
   maxVisibleLanes: number,
+  today?: string,
 ): WeekLaneSplit<D> {
   const totalLanes = allSegments.reduce((m, s) => Math.max(m, s.lane + 1), 0);
   const overflowing = totalLanes > maxVisibleLanes;
@@ -97,7 +107,11 @@ export function splitWeekLanes<D extends WindowDeadlineLike>(
   const segments = allSegments.filter((s) => s.lane < maxVisibleLanes);
   const hiddenSegments = allSegments
     .filter((s) => s.lane >= maxVisibleLanes)
-    .sort((a, b) => (a.d.closes_date ?? "9999").localeCompare(b.d.closes_date ?? "9999"));
+    .sort(
+      (a, b) =>
+        pastRank(a.d.closes_date, today) - pastRank(b.d.closes_date, today) ||
+        (a.d.closes_date ?? "9999").localeCompare(b.d.closes_date ?? "9999"),
+    );
   return { segments, hiddenSegments, laneCount: maxVisibleLanes + 1 };
 }
 
@@ -123,6 +137,7 @@ export function isWindowDeadline(d: WindowDeadlineLike): boolean {
 export function computeWeekSegments<D extends WindowDeadlineLike>(
   weekIsos: (string | null)[],
   windowDeadlines: D[],
+  today?: string,
 ): BandSegment<D>[] {
   const raw: Omit<BandSegment<D>, "lane">[] = [];
   for (const d of windowDeadlines) {
@@ -144,9 +159,11 @@ export function computeWeekSegments<D extends WindowDeadlineLike>(
       endsHere: weekIsos.includes(d.closes_date!),
     });
   }
-  // Urgency order: soonest-closing windows first so they get the lowest lanes
-  // (visible ones when the week overflows). Ties break by opens date, then id.
+  // Urgency order: upcoming windows before already-closed ones, then
+  // soonest-closing first so they get the lowest lanes (visible ones when the
+  // week overflows). Ties break by opens date, then id.
   raw.sort((a, b) =>
+    pastRank(a.d.closes_date, today) - pastRank(b.d.closes_date, today) ||
     a.d.closes_date!.localeCompare(b.d.closes_date!) ||
     a.d.opens_date!.localeCompare(b.d.opens_date!) ||
     a.d.id - b.d.id

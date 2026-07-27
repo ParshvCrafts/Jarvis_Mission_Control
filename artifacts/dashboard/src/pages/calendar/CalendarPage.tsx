@@ -545,8 +545,8 @@ export default function CalendarPage() {
   for (let w = 0; w < grid.length / 7; w++) {
     const days = grid.slice(w * 7, w * 7 + 7);
     const isos = days.map((d) => (d ? isoDay(year, month, d) : null));
-    const allSegments = computeWeekSegments(isos, windowDeadlines);
-    const { segments, hiddenSegments, laneCount } = splitWeekLanes(allSegments, MAX_VISIBLE_LANES);
+    const allSegments = computeWeekSegments(isos, windowDeadlines, today);
+    const { segments, hiddenSegments, laneCount } = splitWeekLanes(allSegments, MAX_VISIBLE_LANES, today);
     weeks.push({ days, isos, segments, hiddenSegments, laneCount });
   }
 

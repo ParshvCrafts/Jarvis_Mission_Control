@@ -203,6 +203,49 @@ describe("computeWeekSegments", () => {
     }
   });
 
+  it("sorts already-closed windows after upcoming ones in lane assignment", () => {
+    const weeks = monthWeeks(2026, 6);
+    const today = "2026-07-08"; // Wednesday of week 1
+    // All overlap all of week 1 → forced into distinct lanes.
+    const expired1 = win("2026-07-01", "2026-07-06"); // closed 2d ago
+    const expired2 = win("2026-07-01", "2026-07-07"); // closed 1d ago
+    const upcomingSoon = win("2026-07-05", "2026-07-10");
+    const upcomingLate = win("2026-07-05", "2026-07-25");
+    const segs = computeWeekSegments(
+      weeks[1]!,
+      [expired1, expired2, upcomingSoon, upcomingLate],
+      today,
+    );
+    const laneOf = new Map(segs.map((s) => [s.d.id, s.lane]));
+    // Upcoming windows claim the lowest (visible) lanes...
+    expect(laneOf.get(upcomingSoon.id)).toBe(0);
+    expect(laneOf.get(upcomingLate.id)).toBe(1);
+    // ...expired windows sort after, still ordered by closes date among themselves
+    expect(laneOf.get(expired1.id)).toBe(2);
+    expect(laneOf.get(expired2.id)).toBe(3);
+  });
+
+  it("treats a window closing today as upcoming, not expired", () => {
+    const weeks = monthWeeks(2026, 6);
+    const today = "2026-07-08";
+    const closesToday = win("2026-07-05", "2026-07-08");
+    const future = win("2026-07-05", "2026-07-09");
+    const segs = computeWeekSegments(weeks[1]!, [future, closesToday], today);
+    const laneOf = new Map(segs.map((s) => [s.d.id, s.lane]));
+    expect(laneOf.get(closesToday.id)).toBe(0);
+    expect(laneOf.get(future.id)).toBe(1);
+  });
+
+  it("keeps pure closes-date ordering when no today reference is given", () => {
+    const weeks = monthWeeks(2026, 6);
+    const early = win("2026-07-05", "2026-07-06");
+    const late = win("2026-07-05", "2026-07-20");
+    const segs = computeWeekSegments(weeks[1]!, [late, early]);
+    const laneOf = new Map(segs.map((s) => [s.d.id, s.lane]));
+    expect(laneOf.get(early.id)).toBe(0);
+    expect(laneOf.get(late.id)).toBe(1);
+  });
+
   it("reuses lower lanes for less urgent windows when they don't collide", () => {
     const weeks = monthWeeks(2026, 6);
     const urgent = win("2026-07-05", "2026-07-06"); // cols 0–1
@@ -273,6 +316,37 @@ describe("splitWeekLanes", () => {
     const dated = seg(5, "2026-07-09");
     const res = splitWeekLanes([seg(0, "2026-07-08"), seg(1, "2026-07-08"), seg(2, "2026-07-08"), seg(3, "2026-07-08"), noClose, dated], 4);
     expect(res.hiddenSegments.map((s) => s.d.id)).toEqual([dated.d.id, noClose.d.id]);
+  });
+
+  it("sorts already-closed windows after upcoming ones in the overflow list", () => {
+    const today = "2026-07-15";
+    const expiredSoonest = seg(4, "2026-07-06"); // closed — earliest closes date overall
+    const upcoming = seg(5, "2026-07-20");
+    const expiredLater = seg(6, "2026-07-10");
+    const res = splitWeekLanes(
+      [seg(0, "2026-07-16"), seg(1, "2026-07-16"), seg(2, "2026-07-16"), seg(3, "2026-07-16"), expiredSoonest, upcoming, expiredLater],
+      4,
+      today,
+    );
+    // Upcoming first, then expired ordered by closes date among themselves
+    expect(res.hiddenSegments.map((s) => s.d.id)).toEqual([
+      upcoming.d.id,
+      expiredSoonest.d.id,
+      expiredLater.d.id,
+    ]);
+  });
+
+  it("keeps null closes_date last even with a today reference", () => {
+    const today = "2026-07-15";
+    const noClose = seg(4, null);
+    const expired = seg(5, "2026-07-01");
+    const upcoming = seg(6, "2026-07-20");
+    const res = splitWeekLanes(
+      [seg(0, "2026-07-16"), seg(1, "2026-07-16"), seg(2, "2026-07-16"), seg(3, "2026-07-16"), noClose, expired, upcoming],
+      4,
+      today,
+    );
+    expect(res.hiddenSegments.map((s) => s.d.id)).toEqual([upcoming.d.id, noClose.d.id, expired.d.id]);
   });
 
   it("does not mutate the input segment array", () => {
