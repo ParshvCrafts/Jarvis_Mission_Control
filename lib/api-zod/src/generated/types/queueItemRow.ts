@@ -9,7 +9,11 @@
 export interface QueueItemRow {
   id: number;
   rank: number;
-  score: number;
+  /**
+     * Application score, or null when no score data is available.
+     * @nullable
+     */
+  score: number | null;
   company: string;
   title: string;
   /** YYYY-MM-DD posting date. */

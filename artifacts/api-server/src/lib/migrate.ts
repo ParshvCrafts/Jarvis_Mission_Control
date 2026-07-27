@@ -84,13 +84,16 @@ export async function runMigrations(): Promise<void> {
       CREATE TABLE IF NOT EXISTS queue_items (
         id SERIAL PRIMARY KEY,
         rank INTEGER NOT NULL DEFAULT 0,
-        score REAL NOT NULL DEFAULT 0,
+        score REAL,
         company TEXT NOT NULL DEFAULT '',
         title TEXT NOT NULL DEFAULT '',
         posted TEXT NOT NULL DEFAULT '',
         url TEXT NOT NULL UNIQUE,
         reviewed BOOLEAN NOT NULL DEFAULT FALSE
       );
+      -- Additive: score is nullable — NULL means "no score data" (never render as 0.0)
+      ALTER TABLE queue_items ALTER COLUMN score DROP NOT NULL;
+      ALTER TABLE queue_items ALTER COLUMN score DROP DEFAULT;
     `);
 
     // Eval summaries — upsert by num

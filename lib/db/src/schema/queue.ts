@@ -4,7 +4,8 @@ import { pgTable, serial, integer, text, boolean, real } from "drizzle-orm/pg-co
 export const queueItemsTable = pgTable("queue_items", {
   id: serial("id").primaryKey(),
   rank: integer("rank").notNull().default(0),
-  score: real("score").notNull().default(0),
+  // Nullable — NULL means "no score data" (distinct from a real 0.0 score)
+  score: real("score"),
   company: text("company").notNull().default(""),
   title: text("title").notNull().default(""),
   posted: text("posted").notNull().default(""), // YYYY-MM-DD

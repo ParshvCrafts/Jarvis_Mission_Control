@@ -290,7 +290,7 @@ export const ListQueueItemsResponse = zod.object({
   "items": zod.array(zod.object({
   "id": zod.number(),
   "rank": zod.number(),
-  "score": zod.number(),
+  "score": zod.number().nullable().describe('Application score, or null when no score data is available.'),
   "company": zod.string(),
   "title": zod.string(),
   "posted": zod.string().describe('YYYY-MM-DD posting date.'),
@@ -319,7 +319,7 @@ export const SetQueueItemReviewedResponse = zod.object({
   "item": zod.object({
   "id": zod.number(),
   "rank": zod.number(),
-  "score": zod.number(),
+  "score": zod.number().nullable().describe('Application score, or null when no score data is available.'),
   "company": zod.string(),
   "title": zod.string(),
   "posted": zod.string().describe('YYYY-MM-DD posting date.'),
@@ -400,7 +400,7 @@ export const GetTodayViewResponse = zod.object({
   "id": zod.number(),
   "company": zod.string(),
   "title": zod.string(),
-  "score": zod.number(),
+  "score": zod.number().nullable().describe('Application score, or null when no score data is available.'),
   "posted": zod.string(),
   "posted_age_days": zod.number()
 })),

@@ -2,4 +2,5 @@
 - [Auth mode seam](auth-mode-seam.md) — AUTH_MODE=replit vs basic; same req.user shape; authMiddleware is no-op in basic mode.
 - [Zod v4 path & Orval](zod-orval-quirks.md) — use zod/v4 import; don't use format:uri in OpenAPI spec (generates zod.url() which breaks v3 typecheck).
 - [Migration runner pattern](migration-runner.md) — uses pool from @workspace/db, runs CREATE TABLE IF NOT EXISTS on boot; never destructive.
+- [Nullable-means-absent data rule](nullable-absent-data.md) — ingest fields with no data must store NULL, not 0/'' defaults; UI renders a neutral placeholder, and DESC sorts need NULLS LAST.
 - [Light-mode via palette remap](light-mode-palette-remap.md) — dashboard is dark-first with hardcoded zinc/accent classes; light theme works by overriding --color-* vars in html:not(.dark), not per-class edits.

@@ -10,7 +10,11 @@ export interface TodayQueueItem {
   id: number;
   company: string;
   title: string;
-  score: number;
+  /**
+     * Application score, or null when no score data is available.
+     * @nullable
+     */
+  score: number | null;
   posted: string;
   posted_age_days: number;
 }

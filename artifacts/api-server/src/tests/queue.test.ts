@@ -275,3 +275,55 @@ describe("Queue gate: reviewed flag survives ingest upsert", () => {
     expect(after.reviewed).toBe(true);
   });
 });
+
+// ── Gate: missing score stays null (never coerced to 0) ─────────────────────
+
+describe("Queue score: missing score is null, not 0.0", () => {
+  it("ingest without score stores NULL and GET /queue returns score: null", async () => {
+    const payload = {
+      payload_version: 1,
+      generated_at: new Date().toISOString(),
+      queue: [
+        {
+          rank: 1,
+          company: "NoScore Co",
+          title: "Eng",
+          posted: "2026-07-01",
+          url: "https://noscore.example.com/job/1",
+        },
+        {
+          rank: 2,
+          score: 72.5,
+          company: "Scored Co",
+          title: "Eng",
+          posted: "2026-07-01",
+          url: "https://scored.example.com/job/1",
+        },
+      ],
+    };
+
+    const ingest = await agent()
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${TEST_INGEST_TOKEN}`)
+      .send(payload);
+    expect(ingest.status).toBe(200);
+
+    const res = await agent().get(
+      "/api/queue?filter=all&company=NoScore&page_size=10",
+    );
+    expect(res.status).toBe(200);
+    const noScore = res.body.items.find(
+      (i: { url: string }) => i.url === "https://noscore.example.com/job/1",
+    );
+    expect(noScore).toBeDefined();
+    expect(noScore.score).toBeNull();
+
+    const res2 = await agent().get(
+      "/api/queue?filter=all&company=Scored&page_size=10",
+    );
+    const scored = res2.body.items.find(
+      (i: { url: string }) => i.url === "https://scored.example.com/job/1",
+    );
+    expect(scored.score).toBeCloseTo(72.5);
+  });
+});

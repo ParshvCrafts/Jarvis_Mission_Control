@@ -1149,7 +1149,8 @@ components:
         rank:
           type: integer
         score:
-          type: number
+          type: [number, "null"]
+          description: Application score, or null when no score data is available.
         company:
           type: string
         title:
@@ -1239,7 +1240,8 @@ components:
         title:
           type: string
         score:
-          type: number
+          type: [number, "null"]
+          description: Application score, or null when no score data is available.
         posted:
           type: string
         posted_age_days:

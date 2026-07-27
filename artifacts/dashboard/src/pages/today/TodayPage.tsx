@@ -60,7 +60,17 @@ function CopyBtn({ text, className }: { text: string; className?: string }) {
 }
 
 /** Score badge for queue items */
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score }: { score: number | null }) {
+  if (score === null) {
+    return (
+      <span
+        className="inline-flex items-center rounded px-1.5 py-px text-[10px] font-mono text-zinc-600"
+        title="No score data"
+      >
+        —
+      </span>
+    );
+  }
   const cls =
     score >= 4
       ? "bg-emerald-950 text-emerald-300 ring-emerald-800"

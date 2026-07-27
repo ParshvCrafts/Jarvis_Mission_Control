@@ -13,7 +13,17 @@ const PAGE_SIZE = 50;
 
 // ── Score badge ───────────────────────────────────────────────────────────────
 
-function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score }: { score: number | null }) {
+  if (score === null) {
+    return (
+      <span
+        className="inline-flex items-center rounded px-1.5 py-px text-[10px] font-mono shrink-0 w-10 justify-center text-zinc-600"
+        title="No score data"
+      >
+        —
+      </span>
+    );
+  }
   const cls =
     score >= 80
       ? "bg-emerald-950 text-emerald-300 ring-emerald-800"

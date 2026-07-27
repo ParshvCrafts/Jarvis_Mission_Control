@@ -41,7 +41,8 @@ export const StatusEventItemSchema = z.object({
 
 export const QueueItemPayloadSchema = z.object({
   rank: z.number().int().default(0),
-  score: z.number().default(0),
+  // Absent score means "no score data" — stored as NULL, never coerced to 0
+  score: z.number().nullable().default(null),
   company: z.string().default(""),
   title: z.string().default(""),
   posted: z.string().default(""),

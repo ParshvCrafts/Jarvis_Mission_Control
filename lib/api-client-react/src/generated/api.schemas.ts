@@ -332,7 +332,11 @@ export interface UpdatePendingChangeStateRequest {
 export interface QueueItemRow {
   id: number;
   rank: number;
-  score: number;
+  /**
+     * Application score, or null when no score data is available.
+     * @nullable
+     */
+  score: number | null;
   company: string;
   title: string;
   /** YYYY-MM-DD posting date. */
@@ -393,7 +397,11 @@ export interface TodayQueueItem {
   id: number;
   company: string;
   title: string;
-  score: number;
+  /**
+     * Application score, or null when no score data is available.
+     * @nullable
+     */
+  score: number | null;
   posted: string;
   posted_age_days: number;
 }

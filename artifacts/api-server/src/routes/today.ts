@@ -103,7 +103,7 @@ router.get("/today", async (_req, res) => {
       .select()
       .from(queueItemsTable)
       .where(eq(queueItemsTable.reviewed, false))
-      .orderBy(desc(queueItemsTable.score))
+      .orderBy(sql`${queueItemsTable.score} DESC NULLS LAST`)
       .limit(5),
 
     // 4. Non-terminal apps with non-empty blockers (joined to evals)
