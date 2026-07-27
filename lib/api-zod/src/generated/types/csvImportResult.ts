@@ -5,10 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CsvImportConflict } from './csvImportConflict';
 
 export interface CsvImportResult {
   inserted: number;
   /** Rows skipped because an identical deadline (company+program+dates) already exists. */
   duplicates: number;
   errors: string[];
+  /** Rows that match an existing deadline on company+program but have different dates (e.g. the deadline was edited in the app after the original import). These rows are NOT inserted; the client can offer to update the existing deadline instead. */
+  conflicts: CsvImportConflict[];
 }

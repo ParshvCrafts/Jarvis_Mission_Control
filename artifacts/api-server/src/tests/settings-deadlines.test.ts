@@ -335,6 +335,61 @@ describe("POST /api/deadlines/csv-import", () => {
     expect(res.body.duplicates).toBe(1);
   });
 
+  it("reports rows matching company+program with different dates as conflicts instead of inserting", async () => {
+    await db.delete(seasonDeadlinesTable);
+    const csv = [
+      "company,program,opens_date,closes_date",
+      "Edited Co,SWE,2026-09-01,2026-10-15",
+    ].join("\n");
+
+    const first = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(first.body.inserted).toBe(1);
+    expect(first.body.conflicts).toHaveLength(0);
+
+    // User edits the deadline's dates in the app
+    const list = await agent().get("/api/deadlines");
+    const id = list.body.deadlines[0].id;
+    await agent().patch(`/api/deadlines/${id}`).send({ closes_date: "2026-11-30" });
+
+    // Re-import the original CSV → conflict, not a second row
+    const second = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(second.status).toBe(200);
+    expect(second.body.inserted).toBe(0);
+    expect(second.body.duplicates).toBe(0);
+    expect(second.body.conflicts).toHaveLength(1);
+    expect(second.body.conflicts[0]).toMatchObject({
+      existing_id: id,
+      company: "Edited Co",
+      program: "SWE",
+      existing_opens_date: "2026-09-01",
+      existing_closes_date: "2026-11-30",
+      csv_opens_date: "2026-09-01",
+      csv_closes_date: "2026-10-15",
+    });
+
+    const after = await agent().get("/api/deadlines");
+    expect(after.body.deadlines).toHaveLength(1);
+    expect(after.body.deadlines[0].closes_date).toBe("2026-11-30");
+  });
+
+  it("counts an identical repeated conflict row in the same CSV as a duplicate", async () => {
+    await db.delete(seasonDeadlinesTable);
+    const base = "company,program,opens_date,closes_date\nRepeat Co,SWE,2026-09-01,2026-10-15";
+    await agent().post("/api/deadlines/csv-import").send({ csv: base });
+    const list = await agent().get("/api/deadlines");
+    await agent().patch(`/api/deadlines/${list.body.deadlines[0].id}`).send({ closes_date: "2026-12-01" });
+
+    const csv = [
+      "company,program,opens_date,closes_date",
+      "Repeat Co,SWE,2026-09-01,2026-10-15",
+      "Repeat Co,SWE,2026-09-01,2026-10-15",
+    ].join("\n");
+    const res = await agent().post("/api/deadlines/csv-import").send({ csv });
+    expect(res.body.conflicts).toHaveLength(1);
+    expect(res.body.duplicates).toBe(1);
+    expect(res.body.inserted).toBe(0);
+  });
+
   it("ignores non-matching date formats (stores as null)", async () => {
     await db.delete(seasonDeadlinesTable);
     // Both dates don't match YYYY-MM-DD pattern → stored as null

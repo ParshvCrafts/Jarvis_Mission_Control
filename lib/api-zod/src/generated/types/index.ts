@@ -20,6 +20,7 @@ export * from './createPendingChangeRequestKind';
 export * from './createPendingChangeRequestPayload';
 export * from './createSeasonDeadlineRequest';
 export * from './createSeasonDeadlineRequestSource';
+export * from './csvImportConflict';
 export * from './csvImportRequest';
 export * from './csvImportResult';
 export * from './deadlineEnvelope';

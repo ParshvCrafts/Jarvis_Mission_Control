@@ -496,7 +496,16 @@ export const ImportDeadlinesCsvBody = zod.object({
 export const ImportDeadlinesCsvResponse = zod.object({
   "inserted": zod.number(),
   "duplicates": zod.number().describe('Rows skipped because an identical deadline (company+program+dates) already exists.'),
-  "errors": zod.array(zod.string())
+  "errors": zod.array(zod.string()),
+  "conflicts": zod.array(zod.object({
+  "existing_id": zod.number().describe('ID of the existing deadline that matched on company+program.'),
+  "company": zod.string(),
+  "program": zod.string(),
+  "existing_opens_date": zod.union([zod.string(),zod.null()]),
+  "existing_closes_date": zod.union([zod.string(),zod.null()]),
+  "csv_opens_date": zod.union([zod.string(),zod.null()]),
+  "csv_closes_date": zod.union([zod.string(),zod.null()])
+})).describe('Rows that match an existing deadline on company+program but have different dates (e.g. the deadline was edited in the app after the original import). These rows are NOT inserted; the client can offer to update the existing deadline instead.')
 })
 
 

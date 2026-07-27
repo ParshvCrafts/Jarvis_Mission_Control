@@ -243,6 +243,7 @@ router.post("/deadlines/csv-import", async (req, res) => {
   // (case-insensitive company/program), and also dedupe within the file itself.
   const existing = await db
     .select({
+      id: seasonDeadlinesTable.id,
       company: seasonDeadlinesTable.company,
       program: seasonDeadlinesTable.program,
       opensDate: seasonDeadlinesTable.opensDate,
@@ -264,23 +265,61 @@ router.post("/deadlines/csv-import", async (req, res) => {
     ].join("\u0000");
 
   const seen = new Set(existing.map(keyOf));
+
+  // Near-match index: company+program (case-insensitive) → existing DB rows.
+  // A CSV row that matches an existing deadline here but has different dates
+  // means the deadline was likely edited in the app — report it as a conflict
+  // instead of silently inserting a near-duplicate.
+  const cpKeyOf = (r: { company?: string | null; program?: string | null }) =>
+    [(r.company ?? "").trim().toLowerCase(), (r.program ?? "").trim().toLowerCase()].join("\u0000");
+  const byCompanyProgram = new Map<string, typeof existing>();
+  for (const e of existing) {
+    const k = cpKeyOf(e);
+    const list = byCompanyProgram.get(k);
+    if (list) list.push(e);
+    else byCompanyProgram.set(k, [e]);
+  }
+
   const toInsert: typeof rows = [];
+  const conflicts: {
+    existing_id: number;
+    company: string;
+    program: string;
+    existing_opens_date: string | null;
+    existing_closes_date: string | null;
+    csv_opens_date: string | null;
+    csv_closes_date: string | null;
+  }[] = [];
   let duplicates = 0;
   for (const r of rows) {
     const key = keyOf(r);
     if (seen.has(key)) {
       duplicates++;
-    } else {
-      seen.add(key);
-      toInsert.push(r);
+      continue;
     }
+    const nearMatch = byCompanyProgram.get(cpKeyOf(r))?.[0];
+    if (nearMatch) {
+      conflicts.push({
+        existing_id: nearMatch.id,
+        company: r.company ?? "",
+        program: r.program ?? "",
+        existing_opens_date: nearMatch.opensDate ?? null,
+        existing_closes_date: nearMatch.closesDate ?? null,
+        csv_opens_date: r.opensDate ?? null,
+        csv_closes_date: r.closesDate ?? null,
+      });
+      seen.add(key); // identical rows later in the file count as duplicates
+      continue;
+    }
+    seen.add(key);
+    toInsert.push(r);
   }
 
   if (toInsert.length > 0) {
     await db.insert(seasonDeadlinesTable).values(toInsert);
   }
 
-  res.json({ inserted: toInsert.length, duplicates, errors });
+  res.json({ inserted: toInsert.length, duplicates, errors, conflicts });
 });
 
 /** Simple CSV line parser — handles quoted fields containing commas. */

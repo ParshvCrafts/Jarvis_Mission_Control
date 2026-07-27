@@ -917,7 +917,7 @@ components:
           description: Raw CSV text. Header row required with at minimum a "company" column.
     CsvImportResult:
       type: object
-      required: [inserted, duplicates, errors]
+      required: [inserted, duplicates, errors, conflicts]
       properties:
         inserted:
           type: integer
@@ -928,6 +928,43 @@ components:
           type: array
           items:
             type: string
+        conflicts:
+          type: array
+          description: >-
+            Rows that match an existing deadline on company+program but have
+            different dates (e.g. the deadline was edited in the app after the
+            original import). These rows are NOT inserted; the client can offer
+            to update the existing deadline instead.
+          items:
+            $ref: "#/components/schemas/CsvImportConflict"
+    CsvImportConflict:
+      type: object
+      required:
+        [existing_id, company, program, existing_opens_date, existing_closes_date, csv_opens_date, csv_closes_date]
+      properties:
+        existing_id:
+          type: integer
+          description: ID of the existing deadline that matched on company+program.
+        company:
+          type: string
+        program:
+          type: string
+        existing_opens_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        existing_closes_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        csv_opens_date:
+          oneOf:
+            - type: string
+            - type: "null"
+        csv_closes_date:
+          oneOf:
+            - type: string
+            - type: "null"
     # ── Settings ─────────────────────────────────────────────────────────────
     AppSettings:
       type: object

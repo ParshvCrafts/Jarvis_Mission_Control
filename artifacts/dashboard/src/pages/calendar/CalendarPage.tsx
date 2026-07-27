@@ -10,6 +10,7 @@ import {
   useImportDeadlinesCsv,
   getListDeadlinesQueryKey,
   type SeasonDeadline,
+  type CsvImportConflict,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -255,25 +256,36 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
   // Per-row skip reasons from the last import; shown in a dismissible panel
   // (not just a toast count) so bad rows aren't silently lost.
   const [skipped, setSkipped] = useState<string[]>([]);
+  // Near-matches (same company+program, different dates) — the deadline was
+  // likely edited in the app. The user decides per row: keep the edited dates
+  // or overwrite them with the CSV's dates.
+  const [conflicts, setConflicts] = useState<CsvImportConflict[]>([]);
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const importMut = useImportDeadlinesCsv();
+  const updateMut = useUpdateDeadline();
   const qc = useQueryClient();
 
   async function process(text: string) {
     setStatus("loading");
     setErrorMsg("");
     setSkipped([]);
+    setConflicts([]);
     try {
       const res = await importMut.mutateAsync({ data: { csv: text } });
       await qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() });
       setStatus("done");
       setSkipped(res.errors);
+      setConflicts(res.conflicts ?? []);
       const parts = [`${res.inserted} new deadline${res.inserted !== 1 ? "s" : ""} imported`];
       if (res.duplicates > 0) {
         parts.push(`${res.duplicates} duplicate${res.duplicates !== 1 ? "s" : ""} skipped`);
       }
-      if (res.errors.length > 0) {
+      const nConflicts = res.conflicts?.length ?? 0;
+      if (nConflicts > 0) {
+        toast.warning(`${parts.join(", ")} — ${nConflicts} row${nConflicts !== 1 ? "s" : ""} need${nConflicts === 1 ? "s" : ""} review (dates differ from your edits)`);
+      } else if (res.errors.length > 0) {
         toast.warning(`${parts.join(", ")} — ${res.errors.length} row${res.errors.length !== 1 ? "s" : ""} skipped (see details below)`);
       } else if (res.duplicates > 0) {
         toast.info(parts.join(", "));
@@ -285,6 +297,23 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
     } catch (e) {
       setStatus("error");
       setErrorMsg(e instanceof Error ? e.message : "Import failed");
+    }
+  }
+
+  async function applyCsvDates(c: CsvImportConflict) {
+    setResolvingId(c.existing_id);
+    try {
+      await updateMut.mutateAsync({
+        id: c.existing_id,
+        data: { opens_date: c.csv_opens_date, closes_date: c.csv_closes_date },
+      });
+      await qc.invalidateQueries({ queryKey: getListDeadlinesQueryKey() });
+      setConflicts((prev) => prev.filter((x) => x.existing_id !== c.existing_id));
+      toast.success(`${c.company} updated to CSV dates`);
+    } catch {
+      toast.error(`Failed to update ${c.company}`);
+    } finally {
+      setResolvingId(null);
     }
   }
 
@@ -334,6 +363,57 @@ function CsvImportZone({ onImport }: { onImport: () => void }) {
         <><Upload className="h-3.5 w-3.5" /><span>Drop CSV or click to import</span><span className="text-zinc-700">· company,program,opens_date,closes_date,url,notes</span></>
       )}
     </div>
+
+    {conflicts.length > 0 && (
+      <div className="rounded border border-blue-900/60 bg-blue-950/20 px-3 py-2 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-blue-300 font-medium">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            {conflicts.length} deadline{conflicts.length !== 1 ? "s" : ""} in the CSV {conflicts.length !== 1 ? "have" : "has"} different dates than your edits
+          </span>
+          <button
+            onClick={() => setConflicts([])}
+            className="p-0.5 rounded text-blue-500 hover:text-blue-200 hover:bg-blue-900/30 transition-colors"
+            title="Dismiss (keep your edited dates)"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <p className="mt-1 text-[11px] text-blue-200/60">
+          These rows were not imported. Choose per row: keep your dates, or overwrite them with the CSV's.
+        </p>
+        <ul className="mt-1.5 space-y-1.5 max-h-52 overflow-y-auto">
+          {conflicts.map((c) => (
+            <li key={c.existing_id} className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-zinc-200 font-medium">{c.company}</span>
+              {c.program && <span className="text-[11px] text-zinc-500">{c.program}</span>}
+              <span className="text-[10px] font-mono text-zinc-500">
+                yours: {formatDate(c.existing_opens_date)} → {formatDate(c.existing_closes_date)}
+              </span>
+              <span className="text-[10px] font-mono text-blue-300/80">
+                csv: {formatDate(c.csv_opens_date)} → {formatDate(c.csv_closes_date)}
+              </span>
+              <span className="ml-auto flex items-center gap-1">
+                <button
+                  onClick={() => setConflicts((prev) => prev.filter((x) => x.existing_id !== c.existing_id))}
+                  disabled={resolvingId !== null}
+                  className="px-1.5 py-0.5 rounded text-[10px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                >
+                  Keep mine
+                </button>
+                <button
+                  onClick={() => applyCsvDates(c)}
+                  disabled={resolvingId !== null}
+                  className="px-1.5 py-0.5 rounded text-[10px] bg-blue-900/50 text-blue-200 hover:bg-blue-800/60 transition-colors disabled:opacity-50"
+                >
+                  {resolvingId === c.existing_id ? "Updating…" : "Use CSV dates"}
+                </button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
 
     {skipped.length > 0 && (
       <div className="rounded border border-amber-900/60 bg-amber-950/20 px-3 py-2 text-xs">

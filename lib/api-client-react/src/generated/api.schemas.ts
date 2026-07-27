@@ -164,11 +164,24 @@ export interface CsvImportRequest {
   csv: string;
 }
 
+export interface CsvImportConflict {
+  /** ID of the existing deadline that matched on company+program. */
+  existing_id: number;
+  company: string;
+  program: string;
+  existing_opens_date: string | null;
+  existing_closes_date: string | null;
+  csv_opens_date: string | null;
+  csv_closes_date: string | null;
+}
+
 export interface CsvImportResult {
   inserted: number;
   /** Rows skipped because an identical deadline (company+program+dates) already exists. */
   duplicates: number;
   errors: string[];
+  /** Rows that match an existing deadline on company+program but have different dates (e.g. the deadline was edited in the app after the original import). These rows are NOT inserted; the client can offer to update the existing deadline instead. */
+  conflicts: CsvImportConflict[];
 }
 
 export interface AppSettings {
