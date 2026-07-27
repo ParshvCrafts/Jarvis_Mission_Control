@@ -139,6 +139,20 @@ export function isClosedWindow(d: WindowDeadlineLike, today: string): boolean {
 }
 
 /**
+ * List-view visibility for the "Show closed windows" preference. Unlike the
+ * grid (which only hides closed *windows*), the list hides any deadline whose
+ * closes_date is strictly before `today` when the preference is off. Deadlines
+ * without a closes_date are always shown; closing today is still visible.
+ */
+export function isVisibleInList(
+  d: WindowDeadlineLike,
+  today: string,
+  showClosedWindows: boolean,
+): boolean {
+  return showClosedWindows || !d.closes_date || d.closes_date >= today;
+}
+
+/**
  * Compute band segments for one week row. Each segment covers the contiguous
  * columns whose date falls inside [opens_date, closes_date]. Lanes are assigned
  * greedily so overlapping windows stack instead of colliding.

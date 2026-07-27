@@ -8,3 +8,5 @@ Rule: if `tsc` reports a column/property "does not exist" on a `@workspace/db` t
 **Why:** api-server uses TS project references; imports of `@workspace/db` resolve to `lib/db/dist/*.d.ts` (composite, emitDeclarationOnly), which can lag behind schema source edits. This produced phantom errors ("rank does not exist", nullable column rejected as notNull) that looked like drizzle bugs.
 
 **How to apply:** before working around such an error with casts or `sql` escapes, force-rebuild `lib/db` declarations and re-run typecheck.
+
+Same pattern applies to `@workspace/api-client-react`: phantom "property does not exist on ...Params" errors in dashboard typecheck mean `lib/api-client-react/dist` is stale — rebuild with `npx tsc -b lib/api-client-react` and re-run.

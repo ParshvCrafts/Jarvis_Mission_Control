@@ -4,6 +4,7 @@ import {
   isoDay,
   isWindowDeadline,
   isClosedWindow,
+  isVisibleInList,
   computeWeekSegments,
   splitWeekLanes,
   type BandSegment,
@@ -493,6 +494,12 @@ describe("isClosedWindow", () => {
     expect(isClosedWindow(win("2026-07-10", "2026-07-01"), today)).toBe(false);
   });
 
+  it("uses strict day boundaries: yesterday closed, today and tomorrow open", () => {
+    expect(isClosedWindow(win("2026-07-01", "2026-07-26"), today)).toBe(true); // yesterday
+    expect(isClosedWindow(win("2026-07-01", "2026-07-27"), today)).toBe(false); // today
+    expect(isClosedWindow(win("2026-07-01", "2026-07-28"), today)).toBe(false); // tomorrow
+  });
+
   it("filtering with it removes closed windows from lane math and overflow", () => {
     const weekIsos = ["2026-07-26", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-01"];
     const windows = [
@@ -506,5 +513,39 @@ describe("isClosedWindow", () => {
     const { hiddenSegments, laneCount } = splitWeekLanes(segs, 4, today);
     expect(hiddenSegments).toHaveLength(0);
     expect(laneCount).toBe(2);
+  });
+});
+
+// ─── isVisibleInList ──────────────────────────────────────────────────────────
+
+describe("isVisibleInList", () => {
+  const today = "2026-07-27";
+
+  it("shows everything when the preference is on", () => {
+    expect(isVisibleInList(win("2026-07-01", "2026-07-10"), today, true)).toBe(true); // long past
+    expect(isVisibleInList(win(null, "2026-07-26"), today, true)).toBe(true);
+    expect(isVisibleInList(win(null, null), today, true)).toBe(true);
+  });
+
+  it("always shows deadlines without a closes_date, even when off", () => {
+    expect(isVisibleInList(win(null, null), today, false)).toBe(true);
+    expect(isVisibleInList(win("2026-07-01", null), today, false)).toBe(true); // past opens, no closes
+  });
+
+  it("uses strict day boundaries when off: yesterday hidden, today and tomorrow shown", () => {
+    expect(isVisibleInList(win("2026-07-01", "2026-07-26"), today, false)).toBe(false);
+    expect(isVisibleInList(win("2026-07-01", "2026-07-27"), today, false)).toBe(true);
+    expect(isVisibleInList(win("2026-07-01", "2026-07-28"), today, false)).toBe(true);
+  });
+
+  it("hides past closes_date even for non-window deadlines (unlike the grid rule)", () => {
+    // closes-only deadline in the past: not a "window", but the list still hides it
+    const closesOnly = win(null, "2026-07-20");
+    expect(isClosedWindow(closesOnly, today)).toBe(false);
+    expect(isVisibleInList(closesOnly, today, false)).toBe(false);
+    // inverted window in the past: same story
+    const inverted = win("2026-07-25", "2026-07-10");
+    expect(isClosedWindow(inverted, today)).toBe(false);
+    expect(isVisibleInList(inverted, today, false)).toBe(false);
   });
 });

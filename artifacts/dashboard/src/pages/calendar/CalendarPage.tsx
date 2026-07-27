@@ -19,6 +19,7 @@ import {
   isoDay,
   isWindowDeadline,
   isClosedWindow,
+  isVisibleInList,
   computeWeekSegments,
   splitWeekLanes,
   daysFromNow as daysFromNowPure,
@@ -602,9 +603,10 @@ export default function CalendarPage() {
   }
 
   // List view respects the same "show closed" preference: when off, hide
-  // past deadlines (closes_date strictly before today).
-  const listDeadlines = deadlines.filter(
-    (d) => showClosedWindows || !d.closes_date || d.closes_date >= today,
+  // past deadlines (closes_date strictly before today). Predicate lives in
+  // calendarHelpers.ts so it can be unit-tested.
+  const listDeadlines = deadlines.filter((d) =>
+    isVisibleInList(d, today, showClosedWindows),
   );
 
   // Sort deadlines by soonest date
