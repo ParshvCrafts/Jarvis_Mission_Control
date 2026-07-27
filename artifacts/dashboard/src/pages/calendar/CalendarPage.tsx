@@ -18,6 +18,7 @@ import {
   buildMonthGrid,
   isoDay,
   isWindowDeadline,
+  isClosedWindow,
   computeWeekSegments,
   splitWeekLanes,
   daysFromNow as daysFromNowPure,
@@ -78,6 +79,7 @@ function daysFromNow(iso: string | null | undefined): number | null {
 const BAND_TOP = 24; // px below the day number
 const LANE_HEIGHT = 16; // px per band lane
 const MAX_VISIBLE_LANES = 4; // cap stacked bands per week; the rest go to "+N more"
+const SHOW_CLOSED_KEY = "calendar.showClosedWindows"; // localStorage key for the toggle
 
 // ─── Form ─────────────────────────────────────────────────────────────────────
 
@@ -394,6 +396,25 @@ export default function CalendarPage() {
   const todayMonth = parseInt(today.split("-")[1]!) - 1;
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  // "Show closed windows" preference — persists across visits, default on.
+  const [showClosedWindows, setShowClosedWindows] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(SHOW_CLOSED_KEY) !== "false";
+    } catch {
+      return true;
+    }
+  });
+  const toggleShowClosedWindows = useCallback(() => {
+    setShowClosedWindows((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(SHOW_CLOSED_KEY, String(next));
+      } catch {
+        // localStorage unavailable — preference just won't persist
+      }
+      return next;
+    });
+  }, []);
   const [year, setYear] = useState(todayYear);
   const [month, setMonth] = useState(todayMonth);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -523,21 +544,31 @@ export default function CalendarPage() {
     setOverflowWeek(null);
   }
 
+  // When the toggle is off, closed windows are hidden from every grid surface:
+  // bands, "+N more" overflow, day detail panel, and band detail panel.
+  const isHiddenClosed = (d: SeasonDeadline) =>
+    !showClosedWindows && isClosedWindow(d, today);
+
   const selectedDayDeadlines = selectedDay
     ? deadlines.filter(
         (d) =>
-          d.opens_date === selectedDay ||
-          d.closes_date === selectedDay ||
-          (isWindowDeadline(d) && d.opens_date! <= selectedDay && selectedDay <= d.closes_date!)
+          !isHiddenClosed(d) &&
+          (d.opens_date === selectedDay ||
+            d.closes_date === selectedDay ||
+            (isWindowDeadline(d) && d.opens_date! <= selectedDay && selectedDay <= d.closes_date!))
       )
     : [];
   const selectedDeadline = selectedDeadlineId !== null
-    ? deadlines.find((d) => d.id === selectedDeadlineId) ?? null
+    ? deadlines.find((d) => d.id === selectedDeadlineId && !isHiddenClosed(d)) ?? null
     : null;
 
   // Split the month grid into week rows and precompute window bands per week.
   // Lanes are capped: overflow segments are hidden behind a "+N more" indicator.
-  const windowDeadlines = deadlines.filter(isWindowDeadline);
+  // Hiding closed windows removes them from lane assignment and the "+N more"
+  // overflow entirely, so lane math reflects only what's visible.
+  const windowDeadlines = deadlines.filter(
+    (d) => isWindowDeadline(d) && !isHiddenClosed(d),
+  );
   const weeks: {
     days: (number | null)[];
     isos: (string | null)[];
@@ -773,6 +804,15 @@ export default function CalendarPage() {
 
               {/* Legend */}
               <div className="flex items-center gap-4 mt-3">
+                <label className="text-[10px] text-zinc-600 flex items-center gap-1.5 cursor-pointer select-none hover:text-zinc-400 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={showClosedWindows}
+                    onChange={toggleShowClosedWindows}
+                    className="h-3 w-3 accent-blue-600 cursor-pointer"
+                  />
+                  Show closed windows
+                </label>
                 <span className="text-[10px] text-zinc-700 flex items-center gap-1">
                   <span className="inline-block w-2 h-2 bg-emerald-950/60 rounded-sm" />
                   <span className="text-emerald-700">Opens</span>

@@ -130,6 +130,15 @@ export function isWindowDeadline(d: WindowDeadlineLike): boolean {
 }
 
 /**
+ * True when `d` is a window deadline that already closed (closes_date strictly
+ * before `today`). Used by the "Show closed windows" toggle to hide expired
+ * windows from every calendar-grid surface (bands, overflow, detail panels).
+ */
+export function isClosedWindow(d: WindowDeadlineLike, today: string): boolean {
+  return isWindowDeadline(d) && d.closes_date! < today;
+}
+
+/**
  * Compute band segments for one week row. Each segment covers the contiguous
  * columns whose date falls inside [opens_date, closes_date]. Lanes are assigned
  * greedily so overlapping windows stack instead of colliding.

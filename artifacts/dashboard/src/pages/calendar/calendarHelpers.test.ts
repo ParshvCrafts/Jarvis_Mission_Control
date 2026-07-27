@@ -3,6 +3,7 @@ import {
   buildMonthGrid,
   isoDay,
   isWindowDeadline,
+  isClosedWindow,
   computeWeekSegments,
   splitWeekLanes,
   type BandSegment,
@@ -472,5 +473,38 @@ describe("bandColorClass", () => {
 
   it("renders beyond 14 days as emerald", () => {
     expect(bandColorClass(15)).toContain("bg-emerald-900/60");
+  });
+});
+
+// ─── isClosedWindow ───────────────────────────────────────────────────────────
+
+describe("isClosedWindow", () => {
+  const today = "2026-07-27";
+
+  it("is true only for window deadlines closing strictly before today", () => {
+    expect(isClosedWindow(win("2026-07-01", "2026-07-26"), today)).toBe(true);
+    expect(isClosedWindow(win("2026-07-01", "2026-07-27"), today)).toBe(false); // closes today
+    expect(isClosedWindow(win("2026-07-01", "2026-08-01"), today)).toBe(false);
+  });
+
+  it("is false for non-window deadlines (missing or inverted dates)", () => {
+    expect(isClosedWindow(win(null, "2026-07-01"), today)).toBe(false);
+    expect(isClosedWindow(win("2026-07-01", null), today)).toBe(false);
+    expect(isClosedWindow(win("2026-07-10", "2026-07-01"), today)).toBe(false);
+  });
+
+  it("filtering with it removes closed windows from lane math and overflow", () => {
+    const weekIsos = ["2026-07-26", "2026-07-27", "2026-07-28", "2026-07-29", "2026-07-30", "2026-07-31", "2026-08-01"];
+    const windows = [
+      win("2026-07-01", "2026-07-26"), // closed
+      win("2026-07-20", "2026-07-30"),
+      win("2026-07-25", "2026-08-05"),
+    ];
+    const visible = windows.filter((d) => !isClosedWindow(d, today));
+    const segs = computeWeekSegments(weekIsos, visible, today);
+    expect(segs).toHaveLength(2);
+    const { hiddenSegments, laneCount } = splitWeekLanes(segs, 4, today);
+    expect(hiddenSegments).toHaveLength(0);
+    expect(laneCount).toBe(2);
   });
 });
