@@ -24,14 +24,19 @@ import type {
   ApplicationListResponse,
   AuthUserEnvelope,
   BeginBrowserLoginParams,
+  CreatePendingChangeRequest,
   ErrorEnvelope,
   HandleBrowserLoginCallbackParams,
   HealthStatus,
   ListApplicationsParams,
+  ListPendingChangesParams,
   LogoutBrowserSessionParams,
   LogoutSuccess,
   MobileTokenExchangeRequest,
-  MobileTokenExchangeSuccess
+  MobileTokenExchangeSuccess,
+  PendingChangeEnvelope,
+  PendingChangesListResponse,
+  UpdatePendingChangeStateRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -770,4 +775,231 @@ export function useGetApplicationDetail<TData = Awaited<ReturnType<typeof getApp
 
 
 
+
+export const getListPendingChangesUrl = (params?: ListPendingChangesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/pending-changes?${stringifiedParams}` : `/api/pending-changes`
+}
+
+/**
+ * @summary List pending changes, optionally filtered by state or num
+ */
+export const listPendingChanges = async (params?: ListPendingChangesParams, options?: RequestInit): Promise<PendingChangesListResponse> => {
+
+  return customFetch<PendingChangesListResponse>(getListPendingChangesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPendingChangesQueryKey = (params?: ListPendingChangesParams,) => {
+    return [
+    `/api/pending-changes`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPendingChangesQueryOptions = <TData = Awaited<ReturnType<typeof listPendingChanges>>, TError = ErrorType<unknown>>(params?: ListPendingChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPendingChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPendingChangesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPendingChanges>>> = ({ signal }) => listPendingChanges(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPendingChanges>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPendingChangesQueryResult = NonNullable<Awaited<ReturnType<typeof listPendingChanges>>>
+export type ListPendingChangesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List pending changes, optionally filtered by state or num
+ */
+
+export function useListPendingChanges<TData = Awaited<ReturnType<typeof listPendingChanges>>, TError = ErrorType<unknown>>(
+ params?: ListPendingChangesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPendingChanges>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPendingChangesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePendingChangeUrl = () => {
+
+
+
+
+  return `/api/pending-changes`
+}
+
+/**
+ * @summary Create a new pending change
+ */
+export const createPendingChange = async (createPendingChangeRequest: CreatePendingChangeRequest, options?: RequestInit): Promise<PendingChangeEnvelope> => {
+
+  return customFetch<PendingChangeEnvelope>(getCreatePendingChangeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createPendingChangeRequest)
+  }
+);}
+
+
+
+
+
+export const getCreatePendingChangeMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPendingChange>>, TError,{data: BodyType<CreatePendingChangeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPendingChange>>, TError,{data: BodyType<CreatePendingChangeRequest>}, TContext> => {
+
+const mutationKey = ['createPendingChange'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPendingChange>>, {data: BodyType<CreatePendingChangeRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPendingChange(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePendingChangeMutationResult = NonNullable<Awaited<ReturnType<typeof createPendingChange>>>
+    export type CreatePendingChangeMutationBody = BodyType<CreatePendingChangeRequest>
+    export type CreatePendingChangeMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Create a new pending change
+ */
+export const useCreatePendingChange = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPendingChange>>, TError,{data: BodyType<CreatePendingChangeRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPendingChange>>,
+        TError,
+        {data: BodyType<CreatePendingChangeRequest>},
+        TContext
+      > => {
+      return useMutation(getCreatePendingChangeMutationOptions(options));
+    }
+
+export const getUpdatePendingChangeStateUrl = (id: number,) => {
+
+
+
+
+  return `/api/pending-changes/${id}`
+}
+
+/**
+ * @summary Update the state of a pending change
+ */
+export const updatePendingChangeState = async (id: number,
+    updatePendingChangeStateRequest: UpdatePendingChangeStateRequest, options?: RequestInit): Promise<PendingChangeEnvelope> => {
+
+  return customFetch<PendingChangeEnvelope>(getUpdatePendingChangeStateUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updatePendingChangeStateRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdatePendingChangeStateMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePendingChangeState>>, TError,{id: number;data: BodyType<UpdatePendingChangeStateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updatePendingChangeState>>, TError,{id: number;data: BodyType<UpdatePendingChangeStateRequest>}, TContext> => {
+
+const mutationKey = ['updatePendingChangeState'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updatePendingChangeState>>, {id: number;data: BodyType<UpdatePendingChangeStateRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updatePendingChangeState(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdatePendingChangeStateMutationResult = NonNullable<Awaited<ReturnType<typeof updatePendingChangeState>>>
+    export type UpdatePendingChangeStateMutationBody = BodyType<UpdatePendingChangeStateRequest>
+    export type UpdatePendingChangeStateMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Update the state of a pending change
+ */
+export const useUpdatePendingChangeState = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updatePendingChangeState>>, TError,{id: number;data: BodyType<UpdatePendingChangeStateRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updatePendingChangeState>>,
+        TError,
+        {id: number;data: BodyType<UpdatePendingChangeStateRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdatePendingChangeStateMutationOptions(options));
+    }
 

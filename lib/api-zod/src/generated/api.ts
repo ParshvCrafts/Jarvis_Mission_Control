@@ -201,3 +201,74 @@ export const GetApplicationDetailResponse = zod.object({
 })
 
 
+/**
+ * @summary List pending changes, optionally filtered by state or num
+ */
+export const ListPendingChangesQueryParams = zod.object({
+  "state": zod.enum(['pending', 'copied', 'applied', 'dismissed']).optional(),
+  "num": zod.coerce.number().optional()
+})
+
+export const ListPendingChangesResponse = zod.object({
+  "changes": zod.array(zod.object({
+  "id": zod.number(),
+  "createdAt": zod.string().describe('ISO-8601 UTC timestamp.'),
+  "num": zod.number(),
+  "kind": zod.enum(['status', 'note', 'contact', 'followup_done']),
+  "payload": zod.record(zod.string(), zod.unknown()).describe('Kind-specific payload (target_status, note, target_contact, reason).'),
+  "command": zod.string().describe('Exact CLI command to run on the Mac.'),
+  "state": zod.enum(['pending', 'copied', 'applied', 'dismissed'])
+}))
+})
+
+
+/**
+ * @summary Create a new pending change
+ */
+
+
+
+export const CreatePendingChangeBody = zod.object({
+  "num": zod.number(),
+  "kind": zod.enum(['status', 'note', 'contact', 'followup_done']),
+  "payload": zod.record(zod.string(), zod.unknown()),
+  "command": zod.string().min(1)
+})
+
+export const CreatePendingChangeResponse = zod.object({
+  "change": zod.object({
+  "id": zod.number(),
+  "createdAt": zod.string().describe('ISO-8601 UTC timestamp.'),
+  "num": zod.number(),
+  "kind": zod.enum(['status', 'note', 'contact', 'followup_done']),
+  "payload": zod.record(zod.string(), zod.unknown()).describe('Kind-specific payload (target_status, note, target_contact, reason).'),
+  "command": zod.string().describe('Exact CLI command to run on the Mac.'),
+  "state": zod.enum(['pending', 'copied', 'applied', 'dismissed'])
+})
+})
+
+
+/**
+ * @summary Update the state of a pending change
+ */
+export const UpdatePendingChangeStateParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdatePendingChangeStateBody = zod.object({
+  "state": zod.enum(['copied', 'applied', 'dismissed'])
+})
+
+export const UpdatePendingChangeStateResponse = zod.object({
+  "change": zod.object({
+  "id": zod.number(),
+  "createdAt": zod.string().describe('ISO-8601 UTC timestamp.'),
+  "num": zod.number(),
+  "kind": zod.enum(['status', 'note', 'contact', 'followup_done']),
+  "payload": zod.record(zod.string(), zod.unknown()).describe('Kind-specific payload (target_status, note, target_contact, reason).'),
+  "command": zod.string().describe('Exact CLI command to run on the Mac.'),
+  "state": zod.enum(['pending', 'copied', 'applied', 'dismissed'])
+})
+})
+
+

@@ -12,7 +12,9 @@ import {
   coverLettersTable,
   followupItemsTable,
   replySuggestionsTable,
+  pendingChangesTable,
 } from "@workspace/db";
+import { matchesPendingChange } from "../lib/autoApply";
 import { IngestPayloadSchema } from "../lib/ingestSchema";
 
 const router: IRouter = Router();
@@ -301,10 +303,52 @@ router.post(
 
 /**
  * Auto-apply matching pending changes on ingest.
- * Full logic is in Stage 3; this stub keeps the seam for now.
+ * For each active (pending|copied) change, check if the ingested data satisfies
+ * its condition and mark it as 'applied' if so.
  */
-async function autoApplyPendingChanges(_data: unknown): Promise<void> {
-  // Stage 3 will implement: status/contact/note/followup_done matching
+async function autoApplyPendingChanges(data: {
+  applications?: Array<{ num: number; status: string; contact: string; notes: string }>;
+  status_events?: Array<{ num: number; source: string; date: string }>;
+}): Promise<void> {
+  // Fetch all active pending changes
+  const activePending = await db
+    .select()
+    .from(pendingChangesTable)
+    .where(inArray(pendingChangesTable.state, ["pending", "copied"]));
+
+  if (activePending.length === 0) return;
+
+  // Build lookup maps from ingest data
+  const appsByNum = new Map(
+    (data.applications ?? []).map((a) => [a.num, a]),
+  );
+  const eventsByNum = new Map<number, Array<{ source: string; date: string }>>();
+  for (const e of data.status_events ?? []) {
+    if (!eventsByNum.has(e.num)) eventsByNum.set(e.num, []);
+    eventsByNum.get(e.num)!.push({ source: e.source, date: e.date });
+  }
+
+  for (const change of activePending) {
+    const app = appsByNum.get(change.num) ?? null;
+    const events = eventsByNum.get(change.num) ?? [];
+
+    const matched = matchesPendingChange(
+      {
+        kind: change.kind,
+        payload: change.payload as Record<string, unknown>,
+        createdAt: change.createdAt,
+      },
+      app,
+      events,
+    );
+
+    if (matched) {
+      await db
+        .update(pendingChangesTable)
+        .set({ state: "applied" })
+        .where(eq(pendingChangesTable.id, change.id));
+    }
+  }
 }
 
 export default router;

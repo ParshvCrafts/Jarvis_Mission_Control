@@ -3,6 +3,7 @@ import healthRouter from "./health";
 import authRouter from "./auth";
 import ingestRouter from "./ingest";
 import applicationsRouter from "./applications";
+import pendingChangesRouter from "./pending-changes";
 import { requireAuth } from "../middlewares/authMiddleware";
 
 const router: IRouter = Router();
@@ -15,5 +16,6 @@ router.use(authRouter);
 // All routes below require authentication
 router.use(requireAuth);
 router.use(applicationsRouter);
+router.use(pendingChangesRouter);
 
 export default router;

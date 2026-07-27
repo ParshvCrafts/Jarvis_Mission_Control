@@ -112,6 +112,85 @@ export interface ApplicationDetail {
   eval?: EvalSummaryRow | null;
 }
 
+export type PendingChangeKind = typeof PendingChangeKind[keyof typeof PendingChangeKind];
+
+
+export const PendingChangeKind = {
+  status: 'status',
+  note: 'note',
+  contact: 'contact',
+  followup_done: 'followup_done',
+} as const;
+
+/**
+ * Kind-specific payload (target_status, note, target_contact, reason).
+ */
+export type PendingChangePayload = { [key: string]: unknown };
+
+export type PendingChangeState = typeof PendingChangeState[keyof typeof PendingChangeState];
+
+
+export const PendingChangeState = {
+  pending: 'pending',
+  copied: 'copied',
+  applied: 'applied',
+  dismissed: 'dismissed',
+} as const;
+
+export interface PendingChange {
+  id: number;
+  /** ISO-8601 UTC timestamp. */
+  createdAt: string;
+  num: number;
+  kind: PendingChangeKind;
+  /** Kind-specific payload (target_status, note, target_contact, reason). */
+  payload: PendingChangePayload;
+  /** Exact CLI command to run on the Mac. */
+  command: string;
+  state: PendingChangeState;
+}
+
+export interface PendingChangesListResponse {
+  changes: PendingChange[];
+}
+
+export interface PendingChangeEnvelope {
+  change: PendingChange;
+}
+
+export type CreatePendingChangeRequestKind = typeof CreatePendingChangeRequestKind[keyof typeof CreatePendingChangeRequestKind];
+
+
+export const CreatePendingChangeRequestKind = {
+  status: 'status',
+  note: 'note',
+  contact: 'contact',
+  followup_done: 'followup_done',
+} as const;
+
+export type CreatePendingChangeRequestPayload = { [key: string]: unknown };
+
+export interface CreatePendingChangeRequest {
+  num: number;
+  kind: CreatePendingChangeRequestKind;
+  payload: CreatePendingChangeRequestPayload;
+  /** @minLength 1 */
+  command: string;
+}
+
+export type UpdatePendingChangeStateRequestState = typeof UpdatePendingChangeStateRequestState[keyof typeof UpdatePendingChangeStateRequestState];
+
+
+export const UpdatePendingChangeStateRequestState = {
+  copied: 'copied',
+  applied: 'applied',
+  dismissed: 'dismissed',
+} as const;
+
+export interface UpdatePendingChangeStateRequest {
+  state: UpdatePendingChangeStateRequestState;
+}
+
 /**
  * Bearer <session-token> for mobile clients.
  */
@@ -169,5 +248,20 @@ export type ListApplicationsSortDir = typeof ListApplicationsSortDir[keyof typeo
 export const ListApplicationsSortDir = {
   asc: 'asc',
   desc: 'desc',
+} as const;
+
+export type ListPendingChangesParams = {
+state?: ListPendingChangesState;
+num?: number;
+};
+
+export type ListPendingChangesState = typeof ListPendingChangesState[keyof typeof ListPendingChangesState];
+
+
+export const ListPendingChangesState = {
+  pending: 'pending',
+  copied: 'copied',
+  applied: 'applied',
+  dismissed: 'dismissed',
 } as const;
 

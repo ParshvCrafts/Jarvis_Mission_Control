@@ -8,6 +8,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import PendingTray from "@/components/layout/PendingTray";
 
 interface NavItem {
   label: string;
@@ -83,13 +84,16 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
         {/* Footer */}
         <div className="px-4 pb-3 pt-2 border-t border-zinc-800/60 shrink-0">
-          <p className="text-[10px] text-zinc-700 font-mono">Stage 2 / 8</p>
+          <p className="text-[10px] text-zinc-700 font-mono">Stage 3 / 8</p>
         </div>
       </aside>
 
       {/* Main */}
       <main className="flex-1 overflow-hidden flex flex-col min-w-0">
-        {children}
+        <div className="flex-1 overflow-hidden min-h-0">
+          {children}
+        </div>
+        <PendingTray />
       </main>
     </div>
   );
