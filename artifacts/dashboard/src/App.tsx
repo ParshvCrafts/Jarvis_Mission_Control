@@ -6,6 +6,7 @@ import Shell from "@/components/layout/Shell";
 import { PendingChangesProvider } from "@/contexts/PendingChangesContext";
 import TodayPage from "@/pages/today/TodayPage";
 import ApplicationsPage from "@/pages/applications/ApplicationsPage";
+import QueuePage from "@/pages/queue/QueuePage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -27,6 +28,7 @@ function Router() {
         </Route>
         <Route path="/today" component={TodayPage} />
         <Route path="/applications" component={ApplicationsPage} />
+        <Route path="/queue" component={QueuePage} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

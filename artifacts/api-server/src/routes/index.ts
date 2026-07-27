@@ -5,6 +5,7 @@ import ingestRouter from "./ingest";
 import applicationsRouter from "./applications";
 import pendingChangesRouter from "./pending-changes";
 import todayRouter from "./today";
+import queueRouter from "./queue";
 import { requireAuth } from "../middlewares/authMiddleware";
 
 const router: IRouter = Router();
@@ -19,5 +20,6 @@ router.use(requireAuth);
 router.use(applicationsRouter);
 router.use(pendingChangesRouter);
 router.use(todayRouter);
+router.use(queueRouter);
 
 export default router;

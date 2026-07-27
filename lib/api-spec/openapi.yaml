@@ -18,6 +18,8 @@ tags:
     description: Write-back queue of pending changes for Mac sync.
   - name: Today
     description: Today view aggregated data.
+  - name: Queue
+    description: Discovery queue triage.
 paths:
   /healthz:
     get:
@@ -310,6 +312,85 @@ paths:
                 $ref: "#/components/schemas/PendingChangeEnvelope"
         "404":
           description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "422":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /queue:
+    get:
+      operationId: listQueueItems
+      tags: [Queue]
+      summary: List discovery queue items with optional filter and pagination
+      parameters:
+        - name: filter
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [unreviewed, all]
+            default: unreviewed
+        - name: company
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: Paginated queue items sorted by rank.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueListResponse"
+        "401":
+          description: Not authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /queue/{id}/reviewed:
+    patch:
+      operationId: setQueueItemReviewed
+      tags: [Queue]
+      summary: Set the reviewed flag on a queue item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetQueueItemReviewedRequest"
+      responses:
+        "200":
+          description: Updated queue item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueueItemEnvelope"
+        "404":
+          description: Queue item not found.
           content:
             application/json:
               schema:
@@ -613,6 +694,57 @@ components:
         state:
           type: string
           enum: [copied, applied, dismissed]
+    # ── Queue ─────────────────────────────────────────────────────────────────
+    QueueItemRow:
+      type: object
+      required: [id, rank, score, company, title, posted, url, reviewed, posted_age_days]
+      properties:
+        id:
+          type: integer
+        rank:
+          type: integer
+        score:
+          type: number
+        company:
+          type: string
+        title:
+          type: string
+        posted:
+          type: string
+          description: YYYY-MM-DD posting date.
+        url:
+          type: string
+        reviewed:
+          type: boolean
+        posted_age_days:
+          type: integer
+          description: Days since posted date.
+    QueueListResponse:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QueueItemRow"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+    SetQueueItemReviewedRequest:
+      type: object
+      required: [reviewed]
+      properties:
+        reviewed:
+          type: boolean
+    QueueItemEnvelope:
+      type: object
+      required: [item]
+      properties:
+        item:
+          $ref: "#/components/schemas/QueueItemRow"
     # ── Today ─────────────────────────────────────────────────────────────────
     TodayFollowup:
       type: object

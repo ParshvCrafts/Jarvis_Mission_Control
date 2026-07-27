@@ -273,6 +273,64 @@ export const UpdatePendingChangeStateResponse = zod.object({
 
 
 /**
+ * @summary List discovery queue items with optional filter and pagination
+ */
+export const listQueueItemsQueryFilterDefault = `unreviewed`;
+export const listQueueItemsQueryPageDefault = 1;
+export const listQueueItemsQueryPageSizeDefault = 50;
+
+export const ListQueueItemsQueryParams = zod.object({
+  "filter": zod.enum(['unreviewed', 'all']).default(listQueueItemsQueryFilterDefault),
+  "company": zod.coerce.string().optional(),
+  "page": zod.coerce.number().default(listQueueItemsQueryPageDefault),
+  "page_size": zod.coerce.number().default(listQueueItemsQueryPageSizeDefault)
+})
+
+export const ListQueueItemsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.number(),
+  "rank": zod.number(),
+  "score": zod.number(),
+  "company": zod.string(),
+  "title": zod.string(),
+  "posted": zod.string().describe('YYYY-MM-DD posting date.'),
+  "url": zod.string(),
+  "reviewed": zod.boolean(),
+  "posted_age_days": zod.number().describe('Days since posted date.')
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "page_size": zod.number()
+})
+
+
+/**
+ * @summary Set the reviewed flag on a queue item
+ */
+export const SetQueueItemReviewedParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const SetQueueItemReviewedBody = zod.object({
+  "reviewed": zod.boolean()
+})
+
+export const SetQueueItemReviewedResponse = zod.object({
+  "item": zod.object({
+  "id": zod.number(),
+  "rank": zod.number(),
+  "score": zod.number(),
+  "company": zod.string(),
+  "title": zod.string(),
+  "posted": zod.string().describe('YYYY-MM-DD posting date.'),
+  "url": zod.string(),
+  "reviewed": zod.boolean(),
+  "posted_age_days": zod.number().describe('Days since posted date.')
+})
+})
+
+
+/**
  * @summary Today view — follow-ups, suggestions, queue top, blockers, weekly goal, season alert
  */
 export const GetTodayViewResponse = zod.object({

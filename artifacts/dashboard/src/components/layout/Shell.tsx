@@ -21,7 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Today", href: "/today", icon: Sun, enabled: true },
   { label: "Applications", href: "/applications", icon: Briefcase, enabled: true },
   { label: "Board", href: "/board", icon: LayoutGrid, enabled: false },
-  { label: "Queue", href: "/queue", icon: ClipboardList, enabled: false },
+  { label: "Queue", href: "/queue", icon: ClipboardList, enabled: true },
   { label: "Analytics", href: "/analytics", icon: BarChart3, enabled: false },
   { label: "Calendar", href: "/calendar", icon: CalendarDays, enabled: false },
 ];

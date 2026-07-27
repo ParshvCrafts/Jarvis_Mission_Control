@@ -191,6 +191,35 @@ export interface UpdatePendingChangeStateRequest {
   state: UpdatePendingChangeStateRequestState;
 }
 
+export interface QueueItemRow {
+  id: number;
+  rank: number;
+  score: number;
+  company: string;
+  title: string;
+  /** YYYY-MM-DD posting date. */
+  posted: string;
+  url: string;
+  reviewed: boolean;
+  /** Days since posted date. */
+  posted_age_days: number;
+}
+
+export interface QueueListResponse {
+  items: QueueItemRow[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface SetQueueItemReviewedRequest {
+  reviewed: boolean;
+}
+
+export interface QueueItemEnvelope {
+  item: QueueItemRow;
+}
+
 export type TodayFollowupUrgencyLabel = typeof TodayFollowupUrgencyLabel[keyof typeof TodayFollowupUrgencyLabel];
 
 
@@ -345,5 +374,20 @@ export const ListPendingChangesState = {
   copied: 'copied',
   applied: 'applied',
   dismissed: 'dismissed',
+} as const;
+
+export type ListQueueItemsParams = {
+filter?: ListQueueItemsFilter;
+company?: string;
+page?: number;
+page_size?: number;
+};
+
+export type ListQueueItemsFilter = typeof ListQueueItemsFilter[keyof typeof ListQueueItemsFilter];
+
+
+export const ListQueueItemsFilter = {
+  unreviewed: 'unreviewed',
+  all: 'all',
 } as const;
 

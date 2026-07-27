@@ -30,12 +30,16 @@ import type {
   HealthStatus,
   ListApplicationsParams,
   ListPendingChangesParams,
+  ListQueueItemsParams,
   LogoutBrowserSessionParams,
   LogoutSuccess,
   MobileTokenExchangeRequest,
   MobileTokenExchangeSuccess,
   PendingChangeEnvelope,
   PendingChangesListResponse,
+  QueueItemEnvelope,
+  QueueListResponse,
+  SetQueueItemReviewedRequest,
   TodayResponse,
   UpdatePendingChangeStateRequest
 } from './api.schemas';
@@ -1002,6 +1006,162 @@ export const useUpdatePendingChangeState = <TError = ErrorType<ErrorEnvelope>,
         TContext
       > => {
       return useMutation(getUpdatePendingChangeStateMutationOptions(options));
+    }
+
+export const getListQueueItemsUrl = (params?: ListQueueItemsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/queue?${stringifiedParams}` : `/api/queue`
+}
+
+/**
+ * @summary List discovery queue items with optional filter and pagination
+ */
+export const listQueueItems = async (params?: ListQueueItemsParams, options?: RequestInit): Promise<QueueListResponse> => {
+
+  return customFetch<QueueListResponse>(getListQueueItemsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListQueueItemsQueryKey = (params?: ListQueueItemsParams,) => {
+    return [
+    `/api/queue`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListQueueItemsQueryOptions = <TData = Awaited<ReturnType<typeof listQueueItems>>, TError = ErrorType<ErrorEnvelope>>(params?: ListQueueItemsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listQueueItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListQueueItemsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listQueueItems>>> = ({ signal }) => listQueueItems(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listQueueItems>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListQueueItemsQueryResult = NonNullable<Awaited<ReturnType<typeof listQueueItems>>>
+export type ListQueueItemsQueryError = ErrorType<ErrorEnvelope>
+
+
+/**
+ * @summary List discovery queue items with optional filter and pagination
+ */
+
+export function useListQueueItems<TData = Awaited<ReturnType<typeof listQueueItems>>, TError = ErrorType<ErrorEnvelope>>(
+ params?: ListQueueItemsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listQueueItems>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListQueueItemsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetQueueItemReviewedUrl = (id: number,) => {
+
+
+
+
+  return `/api/queue/${id}/reviewed`
+}
+
+/**
+ * @summary Set the reviewed flag on a queue item
+ */
+export const setQueueItemReviewed = async (id: number,
+    setQueueItemReviewedRequest: SetQueueItemReviewedRequest, options?: RequestInit): Promise<QueueItemEnvelope> => {
+
+  return customFetch<QueueItemEnvelope>(getSetQueueItemReviewedUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(setQueueItemReviewedRequest)
+  }
+);}
+
+
+
+
+
+export const getSetQueueItemReviewedMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setQueueItemReviewed>>, TError,{id: number;data: BodyType<SetQueueItemReviewedRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setQueueItemReviewed>>, TError,{id: number;data: BodyType<SetQueueItemReviewedRequest>}, TContext> => {
+
+const mutationKey = ['setQueueItemReviewed'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setQueueItemReviewed>>, {id: number;data: BodyType<SetQueueItemReviewedRequest>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  setQueueItemReviewed(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetQueueItemReviewedMutationResult = NonNullable<Awaited<ReturnType<typeof setQueueItemReviewed>>>
+    export type SetQueueItemReviewedMutationBody = BodyType<SetQueueItemReviewedRequest>
+    export type SetQueueItemReviewedMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Set the reviewed flag on a queue item
+ */
+export const useSetQueueItemReviewed = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setQueueItemReviewed>>, TError,{id: number;data: BodyType<SetQueueItemReviewedRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setQueueItemReviewed>>,
+        TError,
+        {id: number;data: BodyType<SetQueueItemReviewedRequest>},
+        TContext
+      > => {
+      return useMutation(getSetQueueItemReviewedMutationOptions(options));
     }
 
 export const getGetTodayViewUrl = () => {
