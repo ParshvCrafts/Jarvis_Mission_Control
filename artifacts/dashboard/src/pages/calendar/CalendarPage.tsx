@@ -14,6 +14,13 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  buildMonthGrid,
+  isoDay,
+  isWindowDeadline,
+  computeWeekSegments,
+  type BandSegment,
+} from "./calendarHelpers";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,32 +80,9 @@ function daysLabel(days: number | null): string {
 }
 
 // ─── Calendar Grid Helpers ────────────────────────────────────────────────────
-
-function buildMonthGrid(year: number, month: number) {
-  // month: 0-indexed
-  const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const grid: (number | null)[] = [];
-  for (let i = 0; i < firstDay; i++) grid.push(null);
-  for (let d = 1; d <= daysInMonth; d++) grid.push(d);
-  while (grid.length % 7 !== 0) grid.push(null);
-  return grid;
-}
-
-function isoDay(year: number, month: number, day: number): string {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
+// Pure grid/band math lives in calendarHelpers.ts so it can be unit-tested.
 
 // ─── Window Bands ─────────────────────────────────────────────────────────────
-
-interface BandSegment {
-  d: SeasonDeadline;
-  startCol: number;
-  endCol: number; // inclusive
-  lane: number;
-  startsHere: boolean; // opens_date falls within this week
-  endsHere: boolean; // closes_date falls within this week
-}
 
 /** Urgency color for a window band, based on days until close. */
 function bandColorClass(closesDays: number | null): string {
@@ -112,52 +96,6 @@ function bandColorClass(closesDays: number | null): string {
 }
 
 /** Deadlines that render as bands: both dates present and opens <= closes. */
-function isWindowDeadline(d: SeasonDeadline): boolean {
-  return !!d.opens_date && !!d.closes_date && d.opens_date <= d.closes_date;
-}
-
-/**
- * Compute band segments for one week row. Each segment covers the contiguous
- * columns whose date falls inside [opens_date, closes_date]. Lanes are assigned
- * greedily so overlapping windows stack instead of colliding.
- */
-function computeWeekSegments(weekIsos: (string | null)[], windowDeadlines: SeasonDeadline[]): BandSegment[] {
-  const raw: Omit<BandSegment, "lane">[] = [];
-  for (const d of windowDeadlines) {
-    let startCol = -1;
-    let endCol = -1;
-    for (let c = 0; c < 7; c++) {
-      const iso = weekIsos[c];
-      if (iso && iso >= d.opens_date! && iso <= d.closes_date!) {
-        if (startCol === -1) startCol = c;
-        endCol = c;
-      }
-    }
-    if (startCol === -1) continue;
-    raw.push({
-      d,
-      startCol,
-      endCol,
-      startsHere: weekIsos.includes(d.opens_date!),
-      endsHere: weekIsos.includes(d.closes_date!),
-    });
-  }
-  // Stable order: earlier opens first, then longer windows
-  raw.sort((a, b) =>
-    (a.d.opens_date! + a.d.closes_date!).localeCompare(b.d.opens_date! + b.d.closes_date!) || a.d.id - b.d.id
-  );
-  const laneEnds: number[] = []; // per lane, last occupied column
-  return raw.map((seg) => {
-    let lane = laneEnds.findIndex((end) => end < seg.startCol);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(seg.endCol);
-    } else {
-      laneEnds[lane] = seg.endCol;
-    }
-    return { ...seg, lane };
-  });
-}
 
 const BAND_TOP = 24; // px below the day number
 const LANE_HEIGHT = 16; // px per band lane
@@ -632,8 +570,8 @@ export default function CalendarPage() {
   const weeks: {
     days: (number | null)[];
     isos: (string | null)[];
-    segments: BandSegment[];
-    hiddenSegments: BandSegment[];
+    segments: BandSegment<SeasonDeadline>[];
+    hiddenSegments: BandSegment<SeasonDeadline>[];
     laneCount: number;
   }[] = [];
   for (let w = 0; w < grid.length / 7; w++) {
