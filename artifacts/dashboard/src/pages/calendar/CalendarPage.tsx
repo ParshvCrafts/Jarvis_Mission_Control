@@ -851,13 +851,27 @@ export default function CalendarPage() {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Application Window</p>
                       {editingId !== selectedDeadline.id && (
-                        <button
-                          onClick={() => { setEditingId(selectedDeadline.id); setShowAddForm(false); }}
-                          className="p-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                          title="Edit"
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => { setEditingId(selectedDeadline.id); setShowAddForm(false); }}
+                            className="p-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                            title="Edit"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const d = selectedDeadline;
+                              setSelectedDeadlineId(null);
+                              setEditingId(null);
+                              handleDelete(d);
+                            }}
+                            className="p-1 rounded text-zinc-600 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
                     {editingId === selectedDeadline.id ? (
@@ -936,13 +950,25 @@ export default function CalendarPage() {
                           <div key={d.id} className="text-xs bg-zinc-900 rounded p-2 group">
                             <div className="flex items-start justify-between gap-1">
                               <p className="font-medium text-zinc-200">{d.company}</p>
-                              <button
-                                onClick={() => { setEditingId(d.id); setShowAddForm(false); }}
-                                className="p-1 -m-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
-                                title="Edit"
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </button>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 shrink-0">
+                                <button
+                                  onClick={() => { setEditingId(d.id); setShowAddForm(false); }}
+                                  className="p-1 -m-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (editingId === d.id) setEditingId(null);
+                                    handleDelete(d);
+                                  }}
+                                  className="p-1 -m-1 rounded text-zinc-600 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
                             </div>
                             {d.program && <p className="text-zinc-500 text-[11px]">{d.program}</p>}
                             <div className="mt-1 space-y-0.5">
