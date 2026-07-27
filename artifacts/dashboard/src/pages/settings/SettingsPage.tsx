@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Upload, Check, AlertCircle, Save, Sun, Moon } from "lucide-react";
+import { Upload, Check, AlertCircle, Save, Sun, Moon, Monitor } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -21,6 +21,7 @@ function ThemeToggle() {
   const options: { value: Theme; label: string; icon: typeof Sun }[] = [
     { value: "dark", label: "Dark", icon: Moon },
     { value: "light", label: "Light", icon: Sun },
+    { value: "system", label: "System", icon: Monitor },
   ];
 
   return (
