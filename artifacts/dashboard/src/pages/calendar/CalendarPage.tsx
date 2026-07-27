@@ -865,7 +865,33 @@ export default function CalendarPage() {
                   </>
                 ) : selectedDeadline ? (
                   <>
-                    <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Application Window</p>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] text-zinc-600 uppercase tracking-wider">Application Window</p>
+                      {editingId !== selectedDeadline.id && (
+                        <button
+                          onClick={() => { setEditingId(selectedDeadline.id); setShowAddForm(false); }}
+                          className="p-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+                          title="Edit"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                    {editingId === selectedDeadline.id ? (
+                      <DeadlineForm
+                        initial={{
+                          company: selectedDeadline.company,
+                          program: selectedDeadline.program,
+                          opens_date: selectedDeadline.opens_date ?? "",
+                          closes_date: selectedDeadline.closes_date ?? "",
+                          url: selectedDeadline.url,
+                          notes: selectedDeadline.notes,
+                        }}
+                        onSave={(f) => handleUpdate(selectedDeadline.id, f)}
+                        onCancel={() => setEditingId(null)}
+                        saving={savingId === selectedDeadline.id}
+                      />
+                    ) : (
                     <div className="text-xs bg-zinc-900 rounded p-2">
                       <p className="font-medium text-zinc-200">{selectedDeadline.company}</p>
                       {selectedDeadline.program && <p className="text-zinc-500 text-[11px]">{selectedDeadline.program}</p>}
@@ -894,6 +920,7 @@ export default function CalendarPage() {
                         </a>
                       )}
                     </div>
+                    )}
                   </>
                 ) : (
                   <>
@@ -904,9 +931,36 @@ export default function CalendarPage() {
                       <p className="text-xs text-zinc-700">No events</p>
                     ) : (
                       <div className="space-y-2">
-                        {selectedDayDeadlines.map((d) => (
-                          <div key={d.id} className="text-xs bg-zinc-900 rounded p-2">
-                            <p className="font-medium text-zinc-200">{d.company}</p>
+                        {selectedDayDeadlines.map((d) =>
+                          editingId === d.id ? (
+                            <div key={d.id} className="text-xs bg-zinc-900 rounded p-2">
+                              <p className="text-[10px] text-zinc-600 uppercase tracking-wider mb-2">Edit</p>
+                              <DeadlineForm
+                                initial={{
+                                  company: d.company,
+                                  program: d.program,
+                                  opens_date: d.opens_date ?? "",
+                                  closes_date: d.closes_date ?? "",
+                                  url: d.url,
+                                  notes: d.notes,
+                                }}
+                                onSave={(f) => handleUpdate(d.id, f)}
+                                onCancel={() => setEditingId(null)}
+                                saving={savingId === d.id}
+                              />
+                            </div>
+                          ) : (
+                          <div key={d.id} className="text-xs bg-zinc-900 rounded p-2 group">
+                            <div className="flex items-start justify-between gap-1">
+                              <p className="font-medium text-zinc-200">{d.company}</p>
+                              <button
+                                onClick={() => { setEditingId(d.id); setShowAddForm(false); }}
+                                className="p-1 -m-1 rounded text-zinc-600 hover:text-zinc-200 hover:bg-zinc-800 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                                title="Edit"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            </div>
                             {d.program && <p className="text-zinc-500 text-[11px]">{d.program}</p>}
                             <div className="mt-1 space-y-0.5">
                               {d.opens_date === selectedDay && <p className="text-[10px] text-emerald-500">↑ Opens today</p>}
@@ -916,7 +970,8 @@ export default function CalendarPage() {
                               )}
                             </div>
                           </div>
-                        ))}
+                          )
+                        )}
                       </div>
                     )}
                   </>
