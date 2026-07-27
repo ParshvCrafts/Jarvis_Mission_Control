@@ -11,6 +11,7 @@ import {
   coverLettersTable,
   followupItemsTable,
   replySuggestionsTable,
+  pendingChangesTable,
 } from "@workspace/db";
 
 // ─── Test environment setup ───────────────────────────────────────────────────
@@ -26,6 +27,7 @@ beforeAll(async () => {
     "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
   // Truncate all test-relevant tables
+  await db.delete(pendingChangesTable);
   await db.delete(replySuggestionsTable);
   await db.delete(followupItemsTable);
   await db.delete(coverLettersTable);
@@ -37,6 +39,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await db.delete(pendingChangesTable);
   await db.delete(replySuggestionsTable);
   await db.delete(followupItemsTable);
   await db.delete(coverLettersTable);
@@ -353,6 +356,126 @@ describe("POST /api/ingest", () => {
     // Followup should still be there
     const followups = await db.select().from(followupItemsTable);
     expect(followups).toHaveLength(1);
+  });
+});
+
+describe("POST /api/ingest — auto-apply pending changes", () => {
+  async function createPendingChange(body: {
+    num: number;
+    kind: string;
+    payload: Record<string, unknown>;
+  }) {
+    const res = await request(app)
+      .post("/api/pending-changes")
+      .send({ ...body, command: "python3.11 scripts/track.py noop" });
+    expect(res.status).toBe(201);
+    return res.body.change as { id: number; state: string };
+  }
+
+  async function getChangeState(id: number): Promise<string> {
+    const [row] = await db
+      .select()
+      .from(pendingChangesTable)
+      .where((await import("drizzle-orm")).eq(pendingChangesTable.id, id));
+    return row!.state;
+  }
+
+  it("status change auto-applies when snapshot shows the new status", async () => {
+    const change = await createPendingChange({
+      num: 1,
+      kind: "status",
+      payload: { target_status: "interview" },
+    });
+
+    // Snapshot where num=1 has NOT advanced yet → stays pending
+    let res = await request(app)
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${INGEST_TOKEN}`)
+      .send({
+        payload_version: 1,
+        applications: [{ ...BASE_PAYLOAD.applications[0], status: "applied" }],
+      });
+    expect(res.status).toBe(200);
+    expect(await getChangeState(change.id)).toBe("pending");
+
+    // Snapshot where the status has advanced → applied
+    res = await request(app)
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${INGEST_TOKEN}`)
+      .send({
+        payload_version: 1,
+        applications: [{ ...BASE_PAYLOAD.applications[0], status: "interview" }],
+      });
+    expect(res.status).toBe(200);
+    expect(await getChangeState(change.id)).toBe("applied");
+  });
+
+  it("contact change auto-applies when snapshot shows the new contact", async () => {
+    const change = await createPendingChange({
+      num: 2,
+      kind: "contact",
+      payload: { target_contact: "bob@stripe.com" },
+    });
+
+    const res = await request(app)
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${INGEST_TOKEN}`)
+      .send({
+        payload_version: 1,
+        applications: [
+          { ...BASE_PAYLOAD.applications[1], contact: "bob@stripe.com" },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(await getChangeState(change.id)).toBe("applied");
+  });
+
+  it("followup_done auto-applies on a followup status event dated on/after creation", async () => {
+    const change = await createPendingChange({
+      num: 1,
+      kind: "followup_done",
+      payload: {},
+    });
+
+    // Unrelated event source → stays pending
+    let res = await request(app)
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${INGEST_TOKEN}`)
+      .send({
+        payload_version: 1,
+        status_events: [
+          {
+            num: 1,
+            date: "2099-01-01",
+            from_status: "applied",
+            to_status: "applied",
+            source: "mac",
+            note: "",
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(await getChangeState(change.id)).toBe("pending");
+
+    // Followup event dated well after creation → applied
+    res = await request(app)
+      .post("/api/ingest")
+      .set("Authorization", `Bearer ${INGEST_TOKEN}`)
+      .send({
+        payload_version: 1,
+        status_events: [
+          {
+            num: 1,
+            date: "2099-01-02",
+            from_status: "applied",
+            to_status: "applied",
+            source: "followup",
+            note: "Followed up",
+          },
+        ],
+      });
+    expect(res.status).toBe(200);
+    expect(await getChangeState(change.id)).toBe("applied");
   });
 });
 
