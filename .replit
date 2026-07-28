@@ -24,5 +24,8 @@ channel = "stable-25_05"
 
 [userenv]
 
+# DEV_SKIP_AUTH was set here in [userenv.shared] — removed (security
+# review M6): it made every dev/preview session fully unauthenticated,
+# and Replit preview URLs are reachable by anyone who has them. Set it
+# per-shell (DEV_SKIP_AUTH=true pnpm dev) when you genuinely need it.
 [userenv.shared]
-DEV_SKIP_AUTH = "true"

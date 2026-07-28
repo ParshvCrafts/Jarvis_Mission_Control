@@ -28,8 +28,11 @@ declare global {
   }
 }
 
-const AUTH_MODE = process.env.AUTH_MODE ?? "replit";
-const OWNER_USER_ID = process.env.OWNER_USER_ID ?? "";
+// Read at CALL time, not import time: a `const` here freezes the value
+// before test setup (or a config reload) can set it, which is why the
+// old AUTH_MODE=basic tests silently tested replit mode (review M5).
+const AUTH_MODE = () => process.env.AUTH_MODE ?? "replit";
+const OWNER_USER_ID = () => process.env.OWNER_USER_ID ?? "";
 
 // ─── Replit OIDC session loader ───────────────────────────────────────────────
 
@@ -86,7 +89,7 @@ export async function authMiddleware(
     return;
   }
 
-  if (AUTH_MODE !== "replit") {
+  if (AUTH_MODE() !== "replit") {
     next();
     return;
   }
@@ -133,7 +136,7 @@ export async function requireAuth(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  if (AUTH_MODE === "basic") {
+  if (AUTH_MODE() === "basic") {
     await handleBasicAuth(req, res, next);
     return;
   }
@@ -144,7 +147,18 @@ export async function requireAuth(
     return;
   }
 
-  if (OWNER_USER_ID && req.user.id !== OWNER_USER_ID) {
+  // Fail CLOSED: without a configured owner, nobody is the owner. The
+  // previous `if (OWNER_USER_ID && ...)` guard meant an unset/typo'd
+  // secret silently granted every authenticated Replit user full access
+  // to personal data (review M2).
+  if (!OWNER_USER_ID()) {
+    res.status(503).json({
+      error: "Server misconfigured: OWNER_USER_ID is not set",
+    });
+    return;
+  }
+
+  if (req.user.id !== OWNER_USER_ID()) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }

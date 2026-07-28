@@ -14,10 +14,11 @@ restore it to a fresh environment, or run it on a self-hosted VPS.
 | `PORT` | Always | Port the API server binds to (set automatically by Replit; set manually on VPS) |
 | `AUTH_MODE` | Optional | `replit` (default) or `basic` |
 | `OWNER_USER_ID` | `AUTH_MODE=replit` | Your Replit numeric user ID (find it at `https://replit.com/@<you>`) |
-| `SESSION_SECRET` | `AUTH_MODE=replit` | Random secret for cookie signing (generate: `openssl rand -hex 32`) |
+| `SESSION_SECRET` | unused | Reserved; sessions use unsigned random-id cookies (32-byte sid), no signing needed |
 | `REPL_ID` | `AUTH_MODE=replit` | Set automatically by Replit; OIDC redirect URI is derived from it |
 | `AUTH_BASIC_USER` | `AUTH_MODE=basic` | Login username |
 | `AUTH_BASIC_PASSWORD_HASH` | `AUTH_MODE=basic` | bcrypt hash of password (generate: see below) |
+| `ALLOWED_ORIGINS` | Optional | Comma-separated origins allowed for CORS. Default: none (same-origin only — the dashboard is served by this server) |
 
 ### Generate a bcrypt password hash (basic mode)
 
@@ -128,7 +129,7 @@ server {
 | `AUTH_MODE=replit` | Uses Replit OIDC (`https://replit.com/oidc`). OIDC redirect URI is auto-derived from `REPL_ID`. Not portable off Replit. |
 | `OWNER_USER_ID` | Your Replit numeric user ID. Find it: open your profile at `https://replit.com/@<handle>`, run `fetch('/api/auth/me').then(r=>r.json()).then(d=>console.log(d.id))` in the browser console. |
 | Session storage | Sessions stored in the `sessions` table (PostgreSQL). No in-memory session store — horizontal scaling safe. |
-| Secrets | `INGEST_TOKEN` and `SESSION_SECRET` are stored as Replit Secrets and never checked into the repo. |
+| Secrets | `INGEST_TOKEN` is stored as a Replit Secret and never checked into the repo. |
 | Workflows | Two managed workflows: `API Server` (Express) and `Dashboard` (Vite). Replit starts them automatically. |
 
 ---
@@ -138,7 +139,6 @@ server {
 1. Fork or clone the repl.
 2. Set secrets in the Replit Secrets panel:
    - `INGEST_TOKEN` — any random string (`openssl rand -hex 32`)
-   - `SESSION_SECRET` — any random string (`openssl rand -hex 32`)
 3. Set environment variables:
    - `OWNER_USER_ID` — your Replit user ID (see above)
 4. Start the workflows. The API server runs `pnpm --filter @workspace/api-server run dev`.

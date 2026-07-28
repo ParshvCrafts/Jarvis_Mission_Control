@@ -109,8 +109,59 @@ export const IngestPayloadSchema = z.object({
 export type IngestPayload = z.infer<typeof IngestPayloadSchema>;
 
 /**
+ * Neutralize untrusted text for use inside a quoted CLI argument.
+ *
+ * Escaping (`\"`, `\$`) is the wrong primitive here: backticks, backslashes
+ * and `!` still reach the shell when the owner pastes the command
+ * (security review B1). Instead every shell-active character is REPLACED
+ * with a lookalike — same approach as the Mac side's sanitize_for_note —
+ * so the pasted string is inert no matter which shell interprets it.
+ * Replacements (not deletions) keep the text readable as evidence.
+ */
+export function sanitizeForCommand(s: string): string {
+  let out = s
+    .replace(/[\r\n\t]/g, " ")
+    .replace(/\|/g, "/")
+    .replace(/[`"']/g, "'")
+    .replace(/;/g, ",")
+    .replace(/\$/g, "S")
+    .replace(/\\/g, "/")
+    .replace(/!/g, ".")
+    .replace(/[&<>#*?~^(){}[\]]/g, " ");
+  // banned flags never appear in a displayed command, even inside a note
+  out = out.replace(/--force/g, "force").replace(/--yes/g, "yes");
+  return out.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+/**
+ * A command the dashboard displays with a copy button MUST be a track.py
+ * invocation and MUST NOT contain any character that stays shell-active
+ * inside quotes (security review B2: ingested suggested_command reached
+ * the copy button verbatim). The Mac side builds commands from typed argv
+ * via shlex.join with all dangerous characters pre-neutralized, so a
+ * legitimate command always passes this check.
+ */
+const TRACK_COMMAND_PREFIX = "python3.11 scripts/track.py ";
+// Quote characters are allowed: shlex.join legitimately emits '"'"' when a
+// note contains a single quote, and quotes alone cannot chain or substitute
+// commands. Everything that can — separators, redirects, substitution,
+// escapes, newlines — is banned.
+// eslint-disable-next-line no-control-regex
+const SHELL_ACTIVE = /[`$\\;|&<>\n\r\t]/;
+
+export function isValidTrackCommand(command: string): boolean {
+  return (
+    command.startsWith(TRACK_COMMAND_PREFIX) &&
+    command.length <= 500 &&
+    !SHELL_ACTIVE.test(command) &&
+    !command.includes("--force") &&
+    !command.includes("--yes")
+  );
+}
+
+/**
  * Format a pending-change CLI command.
- * Strips newlines, escapes " and $ inside note values.
+ * Untrusted values are neutralized via sanitizeForCommand.
  */
 export function formatPendingCommand(
   kind: "status" | "note" | "contact" | "followup_done",
@@ -118,8 +169,7 @@ export function formatPendingCommand(
   value: string,
   todayLA: string,
 ): string {
-  const sanitize = (s: string) =>
-    s.replace(/\n/g, " ").replace(/"/g, '\\"').replace(/\$/g, "\\$");
+  const sanitize = sanitizeForCommand;
 
   switch (kind) {
     case "status":

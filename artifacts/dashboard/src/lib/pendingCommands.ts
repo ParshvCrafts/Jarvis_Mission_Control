@@ -4,9 +4,25 @@
  * Both must stay in sync — change one, change both.
  */
 
-/** Sanitize a value for use inside a quoted CLI argument. */
+/**
+ * Neutralize untrusted text for use inside a quoted CLI argument.
+ * Every shell-active character is REPLACED with a lookalike (not escaped —
+ * escaping leaves backtick/backslash/! live when pasted into a shell;
+ * security review B1). Mirrors sanitizeForCommand in
+ * artifacts/api-server/src/lib/ingestSchema.ts — change one, change both.
+ */
 function sanitize(s: string): string {
-  return s.replace(/\n/g, " ").replace(/"/g, '\\"').replace(/\$/g, "\\$");
+  let out = s
+    .replace(/[\r\n\t]/g, " ")
+    .replace(/\|/g, "/")
+    .replace(/[`"']/g, "'")
+    .replace(/;/g, ",")
+    .replace(/\$/g, "S")
+    .replace(/\\/g, "/")
+    .replace(/!/g, ".")
+    .replace(/[&<>#*?~^(){}[\]]/g, " ");
+  out = out.replace(/--force/g, "force").replace(/--yes/g, "yes");
+  return out.replace(/\s+/g, " ").trim().slice(0, 120);
 }
 
 export type PendingKind = "status" | "note" | "contact" | "followup_done";

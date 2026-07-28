@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod/v4";
 import { db, pendingChangesTable } from "@workspace/db";
+import { formatPendingCommand } from "../lib/ingestSchema";
 
 const router: IRouter = Router();
 
@@ -55,8 +56,50 @@ const CreateSchema = z.object({
   num: z.number().int().positive(),
   kind: KindSchema,
   payload: z.record(z.string(), z.unknown()),
-  command: z.string().min(1),
+  // Accepted for backward compatibility but IGNORED: the server rebuilds
+  // the command from (kind, payload) so a compromised/CSRF'd client can
+  // never stage an arbitrary string behind the copy button (review B2/M1).
+  command: z.string().optional(),
 });
+
+const VALID_STATUSES = new Set([
+  "evaluated", "applied", "oa", "responded", "interview",
+  "offer", "hired", "rejected", "discarded", "withdrawn",
+]);
+
+/** Rebuild the CLI command server-side from the structured payload. */
+function commandFor(
+  kind: z.infer<typeof KindSchema>,
+  num: number,
+  payload: Record<string, unknown>,
+): string | null {
+  const str = (key: string) =>
+    typeof payload[key] === "string" ? (payload[key] as string) : "";
+  const today = new Date().toLocaleDateString("en-CA", {
+    timeZone: "America/Los_Angeles",
+  });
+  switch (kind) {
+    case "status": {
+      const target = str("target_status");
+      if (!VALID_STATUSES.has(target)) return null;
+      return formatPendingCommand("status", num, target, today);
+    }
+    case "note": {
+      const note = str("note");
+      if (!note.trim()) return null;
+      return formatPendingCommand("note", num, note, today);
+    }
+    case "contact": {
+      const contact = str("target_contact");
+      if (!contact.trim()) return null;
+      return formatPendingCommand("contact", num, contact, today);
+    }
+    case "followup_done":
+      return formatPendingCommand(
+        "followup_done", num, str("reason") || "marked done via dashboard",
+        today);
+  }
+}
 
 router.post("/pending-changes", async (req: Request, res: Response): Promise<void> => {
   const parsed = CreateSchema.safeParse(req.body);
@@ -71,7 +114,13 @@ router.post("/pending-changes", async (req: Request, res: Response): Promise<voi
     return;
   }
 
-  const { num, kind, payload, command } = parsed.data;
+  const { num, kind, payload } = parsed.data;
+
+  const command = commandFor(kind, num, payload);
+  if (command === null) {
+    res.status(422).json({ error: `Invalid payload for kind "${kind}"` });
+    return;
+  }
 
   const [change] = await db
     .insert(pendingChangesTable)

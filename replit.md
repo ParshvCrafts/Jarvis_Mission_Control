@@ -117,7 +117,7 @@ required. Constant-time `crypto.timingSafeEqual` comparison.
 | `PORT` | Always | Set by Replit automatically |
 | `AUTH_MODE` | Optional | `replit` (default) or `basic` |
 | `OWNER_USER_ID` | replit mode | Your Replit user ID |
-| `SESSION_SECRET` | replit mode | Cookie signing secret (`openssl rand -hex 32`) |
+| `SESSION_SECRET` | unused | Reserved; sessions use unsigned random-id cookies (32-byte sid), no signing needed |
 | `REPL_ID` | replit mode | Set automatically by Replit |
 | `AUTH_BASIC_USER` | basic mode | Login username |
 | `AUTH_BASIC_PASSWORD_HASH` | basic mode | bcrypt hash of password |
@@ -128,7 +128,6 @@ required. Constant-time `crypto.timingSafeEqual` comparison.
 
 1. Set secrets in the Replit Secrets panel:
    - `INGEST_TOKEN` — any random string: `openssl rand -hex 32`
-   - `SESSION_SECRET` — any random string: `openssl rand -hex 32`
 2. Set `OWNER_USER_ID` env var to your Replit user ID (find via browser console — see above).
 3. Start the workflows. Schema migrations run automatically on boot.
 4. Send your first ingest from the Mac:
