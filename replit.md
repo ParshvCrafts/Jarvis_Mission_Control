@@ -7,6 +7,23 @@ copy-pasteable CLI commands. No LLM, no email, no auto-apply.
 
 ---
 
+## Start here (new machine or new session)
+
+The development machine changed on 2026-08-20. Read these in order before
+making changes:
+
+| Doc | What it answers |
+|-----|-----------------|
+| [`docs/HANDOFF-2026-08-20.md`](docs/HANDOFF-2026-08-20.md) | current state, verification status, remaining next steps |
+| [`docs/OFF-REPO-STATE.md`](docs/OFF-REPO-STATE.md) | everything git cannot carry — secrets, env, agent memory, toolchain |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | future plans, deferred work, and what is permanently out of scope |
+
+**`fix/security-review` is pushed but not merged into `main`.** It fixes 2
+security blockers; `main` still has the vulnerable command-generation path.
+Do not start feature work from `main` until it is merged — see the handoff §4.
+
+---
+
 ## Architecture
 
 ```
