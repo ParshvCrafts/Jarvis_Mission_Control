@@ -54,7 +54,7 @@ written for it, covering the facts that are *not* derivable from the repo:
 |---|---|
 | `mission-control-hosting.md` | Replit-hosted; all env values in Replit Secrets; "won't run locally" is expected |
 | `mission-control-mac-push-seam.md` | the push script reads the shell env, not `Jarvis/.env` — and the names differ |
-| `mission-control-security-branch.md` | `fix/security-review` is the true head; `main` is still vulnerable |
+| `mission-control-security-branch.md` | the hardening is merged into `main`, but its test suites have not been re-run since |
 
 ### 1b. Install them
 
@@ -303,15 +303,16 @@ surface is small (one ingest token).
 
 ## 8. Checklist — tick these off
 
-- [ ] Both repos cloned; `fix/security-review` checked out here (HANDOFF §4)
+- [ ] Both repos cloned; `main` checked out (it already contains the security merge)
 - [ ] §1 agent memory copied into `~/.claude/projects/<mangled>/memory/` (4 files)
 - [ ] §4 global `CLAUDE.md` + `rules/` copied; `settings.json` merged **with paths fixed**
 - [ ] §5 Node 24 + pnpm + Python 3.11 installed; `pnpm install` succeeds
 - [ ] `pnpm run typecheck:libs` clean
-- [ ] Full test suites re-run and matching HANDOFF §5's numbers
+- [ ] Full test suites re-run on merged `main` and matching HANDOFF §5's numbers
+      (**the security merge is typecheck-verified only — this is the real gate**)
 - [ ] §2a Replit Secrets verified present (especially `OWNER_USER_ID` — missing ⇒ 503)
 - [ ] §3 `DASHBOARD_URL` + `DASHBOARD_INGEST_TOKEN` in the **shell profile**, not just a session
 - [ ] §3 dry-run push, then real push, dashboard populates
 - [ ] §6 Replit + GitHub access confirmed; `pg_dump` backup taken
-- [ ] `fix/security-review` merged to `main` and redeployed (HANDOFF §4)
+- [ ] Redeployed on Replit **after** the test suites pass (HANDOFF §4)
 - [ ] Only then: §7 decommission

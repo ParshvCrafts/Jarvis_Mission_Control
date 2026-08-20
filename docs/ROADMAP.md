@@ -22,10 +22,9 @@ blocking, and ordered within each group.
 Listed here so they cannot be mistaken for optional. Details in
 [HANDOFF-2026-08-20.md](HANDOFF-2026-08-20.md) §8.
 
-1. **Merge `fix/security-review` into `main`.** `main` still contains the vulnerable
-   command-generation path (2 blockers). HANDOFF §4.
-2. **Re-run the full test suite on the new machine** and confirm the recorded numbers.
-   HANDOFF §5.
+1. ~~Merge `fix/security-review` into `main`.~~ **Done** — merged 2026-08-20 as `5ba70e4`.
+2. **Re-run the full test suite on the merged `main`** and confirm the recorded numbers.
+   The merge is typecheck-verified only. HANDOFF §4–§5, which also has the rollback.
 3. **Persist the two `DASHBOARD_*` shell exports** so a push survives a new terminal, then
    do a real end-to-end push. [OFF-REPO-STATE.md](OFF-REPO-STATE.md) §3.
 

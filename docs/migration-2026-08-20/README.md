@@ -31,5 +31,5 @@ The Mac's `~/.claude/projects/-Users-parshvmp-Personal-Jarvis-Mission-Control/me
 [`../../.agents/memory/`](../../.agents/memory/) inside the repo (the Replit agent's
 convention), which is already committed. The three files in `claude-memory/` here were
 written fresh for this handoff and cover only the facts that are *not* derivable from the
-repo: Replit hosting, the Mac push-seam env-name mismatch, and the unmerged security
-branch.
+repo: Replit hosting, the Mac push-seam env-name mismatch, and the fact that the merged
+security hardening has not had its test suites re-run.

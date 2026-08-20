@@ -18,9 +18,13 @@ making changes:
 | [`docs/OFF-REPO-STATE.md`](docs/OFF-REPO-STATE.md) | everything git cannot carry — secrets, env, agent memory, toolchain |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | future plans, deferred work, and what is permanently out of scope |
 
-**`fix/security-review` is pushed but not merged into `main`.** It fixes 2
-security blockers; `main` still has the vulnerable command-generation path.
-Do not start feature work from `main` until it is merged — see the handoff §4.
+**`main` is the head — branch new work from it.** The security hardening
+(2 blockers, 6 majors) was merged into `main` on 2026-08-20 as `5ba70e4`.
+`main` no longer carries the vulnerable command-generation path.
+
+Still outstanding: the DB-backed vitest suites have **not** been re-run since
+the merge (they cannot run on the machine that did it). Re-run them before
+deploying — handoff §4.
 
 ---
 

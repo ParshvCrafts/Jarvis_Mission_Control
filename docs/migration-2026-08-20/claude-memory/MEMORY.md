@@ -1,3 +1,3 @@
 - [Mission Control runs on Replit](mission-control-hosting.md) — app is Replit-hosted; every env value lives in Replit Secrets, nothing on disk.
 - [Mac push seam needs shell exports](mission-control-mac-push-seam.md) — push_dashboard.py reads DASHBOARD_URL/DASHBOARD_INGEST_TOKEN from the real shell, not from Jarvis/.env.
-- [Security branch awaiting merge](mission-control-security-branch.md) — fix/security-review is pushed but unmerged as of 2026-08-20.
+- [Security merge not test-verified](mission-control-security-branch.md) — hardening merged into main 2026-08-20 as 5ba70e4; typecheck-verified only, suites not re-run.
