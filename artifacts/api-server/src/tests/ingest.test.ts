@@ -20,11 +20,11 @@ const INGEST_TOKEN = "test-ingest-token-abc123";
 
 beforeAll(async () => {
   process.env["INGEST_TOKEN"] = INGEST_TOKEN;
-  process.env["AUTH_MODE"] = "basic";
-  process.env["AUTH_BASIC_USER"] = "admin";
-  // bcrypt hash of "password" with rounds=10
-  process.env["AUTH_BASIC_PASSWORD_HASH"] =
-    "$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
+  // NOTE: this used to set AUTH_MODE=basic globally — it was inert while
+  // AUTH_MODE was frozen at import (review M5), and now that the mode is
+  // read per-request it would break every protected-route test in this
+  // file. Basic-mode coverage lives in the dedicated describe below,
+  // which sets and restores the env per test.
 
   // Truncate all test-relevant tables
   await db.delete(pendingChangesTable);
@@ -538,13 +538,94 @@ describe("POST /api/ingest — prune stale pending changes", () => {
 });
 
 describe("AUTH_MODE=basic", () => {
-  it("401 — wrong password returns 401", async () => {
-    const wrongCreds = Buffer.from("admin:wrongpassword").toString("base64");
-    const res = await request(app)
-      .get("/api/healthz")
-      .set("Authorization", `Basic ${wrongCreds}`);
-    // healthz is public — auth not required, so 200 expected here
-    // This test just verifies the endpoint responds
-    expect([200, 401]).toContain(res.status);
+  // Real e2e over a PROTECTED route (the old version hit public /healthz
+  // and asserted [200,401] — it could never fail; review M5). AUTH_MODE
+  // and OWNER_USER_ID are now read per-request, so per-test env works.
+  let hash = "";
+  beforeAll(async () => {
+    const bcrypt = (await import("bcryptjs")).default;
+    hash = await bcrypt.hash("password", 10);
+  });
+
+  function basicEnv() {
+    const saved = {
+      mode: process.env["AUTH_MODE"],
+      skip: process.env["DEV_SKIP_AUTH"],
+      user: process.env["AUTH_BASIC_USER"],
+      hash: process.env["AUTH_BASIC_PASSWORD_HASH"],
+    };
+    process.env["AUTH_MODE"] = "basic";
+    delete process.env["DEV_SKIP_AUTH"];
+    process.env["AUTH_BASIC_USER"] = "admin";
+    process.env["AUTH_BASIC_PASSWORD_HASH"] = hash;
+    return () => {
+      if (saved.mode !== undefined) process.env["AUTH_MODE"] = saved.mode;
+      if (saved.skip !== undefined) process.env["DEV_SKIP_AUTH"] = saved.skip;
+      if (saved.user !== undefined) process.env["AUTH_BASIC_USER"] = saved.user;
+      if (saved.hash !== undefined)
+        process.env["AUTH_BASIC_PASSWORD_HASH"] = saved.hash;
+    };
+  }
+
+  it("200 — valid credentials reach a protected route", async () => {
+    const restore = basicEnv();
+    try {
+      const creds = Buffer.from("admin:password").toString("base64");
+      const res = await request(app)
+        .get("/api/settings")
+        .set("Authorization", `Basic ${creds}`);
+      expect(res.status).toBe(200);
+    } finally {
+      restore();
+    }
+  });
+
+  it("401 — wrong password is rejected on a protected route", async () => {
+    const restore = basicEnv();
+    try {
+      const creds = Buffer.from("admin:wrongpassword").toString("base64");
+      const res = await request(app)
+        .get("/api/settings")
+        .set("Authorization", `Basic ${creds}`);
+      expect(res.status).toBe(401);
+    } finally {
+      restore();
+    }
+  });
+
+  it("401 + WWW-Authenticate — missing header prompts for credentials", async () => {
+    const restore = basicEnv();
+    try {
+      const res = await request(app).get("/api/settings");
+      expect(res.status).toBe(401);
+      expect(res.headers["www-authenticate"]).toContain("Basic");
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("replit mode owner check fails closed", () => {
+  it("503 — authenticated user without OWNER_USER_ID configured is refused", async () => {
+    const saved = {
+      mode: process.env["AUTH_MODE"],
+      skip: process.env["DEV_SKIP_AUTH"],
+      owner: process.env["OWNER_USER_ID"],
+    };
+    process.env["AUTH_MODE"] = "replit";
+    // DEV_SKIP_AUTH sets a fake authenticated user; requireAuth must still
+    // refuse because no owner is configured (review M2: used to fail open).
+    process.env["DEV_SKIP_AUTH"] = "true";
+    delete process.env["OWNER_USER_ID"];
+    try {
+      const res = await request(app).get("/api/settings");
+      expect(res.status).toBe(503);
+    } finally {
+      if (saved.mode !== undefined) process.env["AUTH_MODE"] = saved.mode;
+      else delete process.env["AUTH_MODE"];
+      if (saved.skip !== undefined) process.env["DEV_SKIP_AUTH"] = saved.skip;
+      else delete process.env["DEV_SKIP_AUTH"];
+      if (saved.owner !== undefined) process.env["OWNER_USER_ID"] = saved.owner;
+    }
   });
 });

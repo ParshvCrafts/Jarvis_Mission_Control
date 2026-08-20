@@ -17,7 +17,7 @@ describe("formatPendingCommand", () => {
       "2026-07-26",
     );
     expect(cmd).toBe(
-      `python3.11 scripts/track.py set 3 --note "They said \\"we'll follow up\\"" --date 2026-07-26`,
+      `python3.11 scripts/track.py set 3 --note "They said 'we'll follow up'" --date 2026-07-26`,
     );
   });
 
@@ -29,7 +29,7 @@ describe("formatPendingCommand", () => {
       "2026-07-26",
     );
     expect(cmd).toBe(
-      `python3.11 scripts/track.py set 7 --note "Offers \\$180k base" --date 2026-07-26`,
+      `python3.11 scripts/track.py set 7 --note "Offers S180k base" --date 2026-07-26`,
     );
   });
 
@@ -40,9 +40,9 @@ describe("formatPendingCommand", () => {
       '"$500k ARR" said recruiter',
       "2026-07-26",
     );
-    // Exact string equality — " → \" and $ → \$
+    // Replacement, not escaping (review B1): " → ' and $ → S
     expect(cmd).toBe(
-      `python3.11 scripts/track.py set 1 --note "\\"\\$500k ARR\\" said recruiter" --date 2026-07-26`,
+      `python3.11 scripts/track.py set 1 --note "'S500k ARR' said recruiter" --date 2026-07-26`,
     );
   });
 
@@ -54,7 +54,7 @@ describe("formatPendingCommand", () => {
       "2026-07-26",
     );
     expect(cmd).toBe(
-      `python3.11 scripts/track.py contact 2 --contact "Jane \\"J\\" Doe"`,
+      `python3.11 scripts/track.py contact 2 --contact "Jane 'J' Doe"`,
     );
   });
 

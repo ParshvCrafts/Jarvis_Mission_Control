@@ -11,7 +11,7 @@ import {
   replySuggestionsTable,
 } from "@workspace/db/schema";
 import type { z } from "zod/v4";
-import type { IngestPayloadSchema } from "./ingestSchema";
+import { isValidTrackCommand, type IngestPayloadSchema } from "./ingestSchema";
 
 export type IngestPayload = z.infer<typeof IngestPayloadSchema>;
 
@@ -33,6 +33,10 @@ export async function processIngestPayload(
   data: IngestPayload,
   rawBody: unknown,
 ): Promise<Record<string, number>> {
+  // Single transaction: a mid-payload failure must roll back EVERYTHING.
+  // Before this, followups full-replace was delete-then-insert — an insert
+  // error left the table empty with applications half-upserted (review M3).
+  return await db.transaction(async (db) => {
   // ── Persist snapshot ───────────────────────────────────────────────────
   await db.insert(ingestSnapshotsTable).values({
     payloadVersion: data.payload_version,
@@ -225,8 +229,16 @@ export async function processIngestPayload(
           fromAddr: r.from_addr,
           kind: r.kind,
           confidence: r.confidence,
-          suggestedCommand: r.suggested_command,
-          blocker: r.blocker,
+          // A command that isn't a clean track.py invocation is never
+          // stored (B2): the row survives as informational with a blocker
+          // instead of putting untrusted text behind a copy button.
+          suggestedCommand: isValidTrackCommand(r.suggested_command)
+            ? r.suggested_command
+            : "",
+          blocker:
+            r.suggested_command && !isValidTrackCommand(r.suggested_command)
+              ? "command rejected by server validation"
+              : r.blocker,
         })),
       );
     }
@@ -234,4 +246,5 @@ export async function processIngestPayload(
   }
 
   return counts;
+  });
 }
